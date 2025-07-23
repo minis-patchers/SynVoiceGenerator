@@ -1,0 +1,11 @@
+{
+  "Nickname": "SynVG",
+  "Visibility": "Exclude",
+  "OneLineDescription": "PC Voice Gen",
+  "LongDescription": "",
+  "PreferredAutoVersioning": "Default",
+  "RequiredMods": [],
+  "TargetedReleases": [
+    "SkyrimSE"
+  ]
+}
