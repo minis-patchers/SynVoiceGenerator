@@ -1,0 +1,15 @@
+{
+    "key": "",
+    "voice_id": "",
+    "voice_settings": {
+        "stability": 0.5,
+        "similarity_boost": 0.75,
+        "style": 0.5,
+        "use_speaker_boost": false,
+        "speed": 1.0
+    },
+    "dry_run": true,
+    "log_mode": "NORMAL",
+    "model_id": "eleven_flash_v2_5",
+    "player_names": []
+}
