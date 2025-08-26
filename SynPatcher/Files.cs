@@ -1,10 +1,14 @@
 using Mutagen.Bethesda.Plugins;
 using NAudio.Wave;
 namespace SynPatcher;
-public class VoiceLine
+public class LineTracker
 {
     public HashSet<FormKey> forms = [];
     public string guid = string.Empty;
+    public ulong splen = 0;
+}
+
+public class VoiceMeta {
     public ulong splen = 0;
 }
 

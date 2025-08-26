@@ -1,10 +1,12 @@
 ﻿using Mutagen.Bethesda;
 using Mutagen.Bethesda.Json;
+using Mutagen.Bethesda.Plugins;
 using Mutagen.Bethesda.Plugins.Cache;
 using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Synthesis;
 using Newtonsoft.Json;
 using Noggog;
+using Noggog.StructuredStrings;
 using System.Data;
 using System.Diagnostics;
 using System.IO.Compression;
@@ -33,12 +35,11 @@ public static class Program
             Console.WriteLine($"File I/O error: {ex.Message}");
         }
     }
-    static List<VoiceLine> lines = [];
+    static List<LineTracker> lines = [];
     static readonly HashSet<string> generatedText = [];
     static Lazy<ElevenLabs> api = new();
     public static ElevenLabs APIInfo => api.Value;
     static readonly HttpClient client = new();
-    static string DFP = string.Empty;
     static string EDFP = string.Empty;
     static string CKTools = string.Empty;
     public static async Task<int> Main(string[] args)
@@ -52,7 +53,6 @@ public static class Program
         settings.Formatting = Formatting.Indented;
         var parent = Directory.GetParent(state.DataFolderPath);
         CKTools = Path.Join(parent?.FullName, "Tools");
-        DFP = state.DataFolderPath;
         Directory.CreateDirectory(Path.Join(state.ExtraSettingsDataPath, "tmp"));
         Directory.CreateDirectory(Path.Join(state.ExtraSettingsDataPath, "Prior"));
         if (!File.Exists(Path.Join(state.ExtraSettingsDataPath, "ffmpeg.exe")))
@@ -78,13 +78,37 @@ public static class Program
         }
         if (File.Exists(Path.Join(state.DataFolderPath, "SKSE", "VPC", "map.json")))
         {
-            lines = JsonConvert.DeserializeObject<List<VoiceLine>>(File.ReadAllText(Path.Join(state.DataFolderPath, "SKSE", "VPC", "map.json")), settings) ?? [];
+            HashSet<FormKey> seenForms = [];
+            lines = JsonConvert.DeserializeObject<List<LineTracker>>(File.ReadAllText(Path.Join(state.DataFolderPath, "SKSE", "VPC", "map.json")), settings) ?? [];
+            HashSet<LineTracker> empties = [];
+            foreach (var lin in lines)
+            {
+                HashSet<FormKey> rem = [];
+                foreach (var id in lin.forms)
+                {
+                    if (!seenForms.Add(id))
+                    {
+                        rem.Add(id);
+                    }
+                }
+                if (rem.Count != 0)
+                {
+                    Log($"Deduping {string.Join(',', rem.Select(x => x.ToString()))}", LogMode.NORMAL);
+                    lin.forms.Remove(rem);
+                }
+                if(lin.forms.Count == 0) {
+                    empties.Add(lin);
+                }
+            }
+            Log($"Removing {empties.Count} empty lines", LogMode.NORMAL);
+            lines.Remove(empties);
         }
         Directory.CreateDirectory($"VGOutput/mp3/");
         Directory.CreateDirectory($"VGOutput/wav/");
         Directory.CreateDirectory($"VGOutput/wav/");
         Directory.CreateDirectory($"VGOutput/lip/");
         Directory.CreateDirectory($"VGOutput/xwm/");
+        Directory.CreateDirectory($"VGOutput/fuz/");
         EDFP = state.ExtraSettingsDataPath ?? "";
         client.DefaultRequestHeaders.Add("xi-api-key", APIInfo.key);
         client.BaseAddress = new Uri($"https://api.elevenlabs.io");
@@ -98,6 +122,7 @@ public static class Program
             var line = lines.FirstOrDefault(x => x?.forms.Any(fk => state.LinkCache.TryResolve<IDialogTopicGetter>(fk, out var output, ResolveTarget.Winner) && output.Name?.ToString() == nam) ?? false, null);
             if (line != null)
             {
+                Log($"Duplicate attempted to generating, adding formkey to existing line", LogMode.NORMAL);
                 line.forms.Add(FormKey);
                 continue;
             }
@@ -110,7 +135,7 @@ public static class Program
             //Basic Text Line
             if (!nam.Contains('<') && !nam.Contains('>') && !(nam.StartsWith('(') && nam.EndsWith(')')) && !(nam.StartsWith('[') && !nam.EndsWith(']')) && !(nam.EndsWith('*') && nam.StartsWith('*')) && !nam.Contains('_') && nam.Trim() != "..." && !nam.StartsWith('$'))
             {
-                var vl = new VoiceLine()
+                var vl = new LineTracker()
                 {
                     forms = [FormKey],
                     guid = $"{guid}",
@@ -124,7 +149,7 @@ public static class Program
                 foreach (var gpn in APIInfo.player_names)
                 {
                     var gn = nam.Replace("<Alias=Player>", gpn);
-                    var vl = new VoiceLine()
+                    var vl = new LineTracker()
                     {
                         forms = [FormKey],
                         guid = $"{guid}",
@@ -141,9 +166,22 @@ public static class Program
             }
         }
         File.WriteAllText(Path.Join(state.DataFolderPath, "SKSE", "VPC", "map.json"), JsonConvert.SerializeObject(lines, settings));
+        foreach (var line in lines)
+        {
+            if (File.Exists($"VGOutput/fuz/{line.guid}.fuz"))
+            {
+                foreach (var id in line.forms)
+                {
+                    var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", id.ModKey.ToString(), $"{id.IDString()}.fuz");
+                    var jso = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", id.ModKey.ToString(), $"{id.IDString()}.json");
+                    File.Copy($"VGOutput/fuz/{line.guid}.fuz", fp, true);
+                    File.WriteAllText(jso, JsonConvert.SerializeObject(new VoiceMeta() { splen = line.splen }));
+                }
+            }
+        }
     }
 
-    static void TryGen(VoiceLine line, string text)
+    static void TryGen(LineTracker line, string text)
     {
         if (!generatedText.Contains(text))
         {
@@ -179,14 +217,14 @@ public static class Program
     {
         Log($"DRY {og_txt}", LogMode.DEBUG);
     }
-    static void GenerateLive(VoiceLine data, string text)
+    static void GenerateLive(LineTracker data, string text)
     {
         var mp3name = Path.GetFullPath($"VGOutput/mp3/{data.guid}.mp3");
         var wavname = Path.GetFullPath($"VGOutput/wav/{data.guid}.wav");
         var rwavnam = Path.GetFullPath($"VGOutput/wav/{data.guid}.resamp.wav");
         var lipname = Path.GetFullPath($"VGOutput/lip/{data.guid}.lip");
         var xwmname = Path.GetFullPath($"VGOutput/xwm/{data.guid}.xwm");
-        var fuzname = Path.GetFullPath(Path.Join(DFP, "Sound", "VPC", "DefaultVoice", $"{data.guid}.fuz"));
+        var fuzname = Path.GetFullPath($"VGOutput/fuz/{data.guid}.fuz");
         if (!File.Exists(mp3name) && !File.Exists(fuzname))
         {
             Log($"Generating: {text}", LogMode.NORMAL);
