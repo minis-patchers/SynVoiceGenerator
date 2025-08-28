@@ -51,10 +51,10 @@ public static class Program
         JsonSerializerSettings settings = new();
         settings.AddMutagenConverters();
         settings.Formatting = Formatting.Indented;
+        EDFP = state.ExtraSettingsDataPath ?? string.Empty;
         var parent = Directory.GetParent(state.DataFolderPath);
         CKTools = Path.Join(parent?.FullName, "Tools");
         Directory.CreateDirectory(Path.Join(state.ExtraSettingsDataPath, "tmp"));
-        Directory.CreateDirectory(Path.Join(state.ExtraSettingsDataPath, "Prior"));
         if (!File.Exists(Path.Join(state.ExtraSettingsDataPath, "ffmpeg.exe")))
         {
             if (!File.Exists(Path.Join(state.ExtraSettingsDataPath, "tmp", "FFMPEG.zip")))
@@ -76,10 +76,10 @@ public static class Program
         {
             File.Copy(Path.Join(CKTools, "LipGen", "LipGenerator", "FonixData.cdf"), "FonixData.cdf");
         }
-        if (File.Exists(Path.Join(state.DataFolderPath, "SKSE", "VPC", "map.json")))
+        if (File.Exists(Path.Join(EDFP, "map.json")))
         {
             HashSet<FormKey> seenForms = [];
-            lines = JsonConvert.DeserializeObject<List<LineTracker>>(File.ReadAllText(Path.Join(state.DataFolderPath, "SKSE", "VPC", "map.json")), settings) ?? [];
+            lines = JsonConvert.DeserializeObject<List<LineTracker>>(File.ReadAllText(Path.Join(EDFP, "map.json")), settings) ?? [];
             HashSet<LineTracker> empties = [];
             foreach (var lin in lines)
             {
@@ -96,20 +96,20 @@ public static class Program
                     Log($"Deduping {string.Join(',', rem.Select(x => x.ToString()))}", LogMode.NORMAL);
                     lin.forms.Remove(rem);
                 }
-                if(lin.forms.Count == 0) {
+                if (lin.forms.Count == 0)
+                {
                     empties.Add(lin);
                 }
             }
             Log($"Removing {empties.Count} empty lines", LogMode.NORMAL);
             lines.Remove(empties);
         }
-        Directory.CreateDirectory($"VGOutput/mp3/");
-        Directory.CreateDirectory($"VGOutput/wav/");
-        Directory.CreateDirectory($"VGOutput/wav/");
-        Directory.CreateDirectory($"VGOutput/lip/");
-        Directory.CreateDirectory($"VGOutput/xwm/");
-        Directory.CreateDirectory($"VGOutput/fuz/");
-        EDFP = state.ExtraSettingsDataPath ?? "";
+        Directory.CreateDirectory($"{EDFP}/VGOutput/mp3/");
+        Directory.CreateDirectory($"{EDFP}/VGOutput/wav/");
+        Directory.CreateDirectory($"{EDFP}/VGOutput/wav/");
+        Directory.CreateDirectory($"{EDFP}/VGOutput/lip/");
+        Directory.CreateDirectory($"{EDFP}/VGOutput/xwm/");
+        Directory.CreateDirectory($"{EDFP}/VGOutput/fuz/");
         client.DefaultRequestHeaders.Add("xi-api-key", APIInfo.key);
         client.BaseAddress = new Uri($"https://api.elevenlabs.io");
         foreach (var (Name, FormKey) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (x.Name, x.FormKey)))
@@ -127,7 +127,7 @@ public static class Program
                 continue;
             }
             var guid = Guid.NewGuid().ToString().ToUpper();
-            while (lines.Any(x => x.guid == $"{guid}"))
+            while (lines.Any(x => x.guid == $"{guid}") || File.Exists(Path.Join(EDFP, "VGOutput", "fuz", $"{guid}.fuz")))
             {
                 Console.WriteLine("Regenerating identical guid");
                 guid = Guid.NewGuid().ToString().ToUpper();
@@ -165,7 +165,7 @@ public static class Program
                     Log($"SGen \"{nam}\"", LogMode.NORMAL);
             }
         }
-        File.WriteAllText(Path.Join(state.DataFolderPath, "SKSE", "VPC", "map.json"), JsonConvert.SerializeObject(lines, settings));
+        File.WriteAllText(Path.Join(EDFP, "map.json"), JsonConvert.SerializeObject(lines, settings));
         foreach (var line in lines)
         {
             if (File.Exists($"VGOutput/fuz/{line.guid}.fuz"))
@@ -174,7 +174,7 @@ public static class Program
                 {
                     var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", id.ModKey.ToString(), $"{id.IDString()}.fuz");
                     var jso = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", id.ModKey.ToString(), $"{id.IDString()}.json");
-                    File.Copy($"VGOutput/fuz/{line.guid}.fuz", fp, true);
+                    File.Copy($"{EDFP}/VGOutput/fuz/{line.guid}.fuz", fp, true);
                     File.WriteAllText(jso, JsonConvert.SerializeObject(new VoiceMeta() { splen = line.splen }));
                 }
             }
@@ -219,12 +219,12 @@ public static class Program
     }
     static void GenerateLive(LineTracker data, string text)
     {
-        var mp3name = Path.GetFullPath($"VGOutput/mp3/{data.guid}.mp3");
-        var wavname = Path.GetFullPath($"VGOutput/wav/{data.guid}.wav");
-        var rwavnam = Path.GetFullPath($"VGOutput/wav/{data.guid}.resamp.wav");
-        var lipname = Path.GetFullPath($"VGOutput/lip/{data.guid}.lip");
-        var xwmname = Path.GetFullPath($"VGOutput/xwm/{data.guid}.xwm");
-        var fuzname = Path.GetFullPath($"VGOutput/fuz/{data.guid}.fuz");
+        var mp3name = Path.GetFullPath($"{EDFP}/VGOutput/mp3/{data.guid}.mp3");
+        var wavname = Path.GetFullPath($"{EDFP}/VGOutput/wav/{data.guid}.wav");
+        var rwavnam = Path.GetFullPath($"{EDFP}/VGOutput/wav/{data.guid}.resamp.wav");
+        var lipname = Path.GetFullPath($"{EDFP}/VGOutput/lip/{data.guid}.lip");
+        var xwmname = Path.GetFullPath($"{EDFP}/VGOutput/xwm/{data.guid}.xwm");
+        var fuzname = Path.GetFullPath($"{EDFP}/VGOutput/fuz/{data.guid}.fuz");
         if (!File.Exists(mp3name) && !File.Exists(fuzname))
         {
             Log($"Generating: {text}", LogMode.NORMAL);
