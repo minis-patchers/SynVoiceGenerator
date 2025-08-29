@@ -122,7 +122,6 @@ public static class Program
             var line = lines.FirstOrDefault(x => x?.forms.Any(fk => state.LinkCache.TryResolve<IDialogTopicGetter>(fk, out var output, ResolveTarget.Winner) && output.Name?.ToString() == nam) ?? false, null);
             if (line != null)
             {
-                Log($"Duplicate attempted to generating, adding formkey to existing line", LogMode.NORMAL);
                 line.forms.Add(FormKey);
                 continue;
             }
@@ -162,13 +161,20 @@ public static class Program
             else
             {
                 if (nam.Trim() != "...")
-                    Log($"SGen \"{nam}\"", LogMode.NORMAL);
+                {
+                    var mtch = REG.TextAliases.Matches(nam);
+                    if (mtch.Count >= 1 && mtch.All(x => x.Captures.Count >= 2))
+                    {
+                        Log($"Aliases\n{string.Join(',', mtch.Select(x => $"\t{x.Captures[0]}={x.Captures[1]}\n"))}", LogMode.NORMAL);
+                    }
+                    //Log($"SGen \"{nam}\"", LogMode.NORMAL);
+                }
             }
         }
         File.WriteAllText(Path.Join(EDFP, "map.json"), JsonConvert.SerializeObject(lines, settings));
         foreach (var line in lines)
         {
-            if (File.Exists($"VGOutput/fuz/{line.guid}.fuz"))
+            if (File.Exists($"${EDFP}/VGOutput/fuz/{line.guid}.fuz"))
             {
                 foreach (var id in line.forms)
                 {
@@ -264,6 +270,9 @@ public static class Program
 
 public static partial class REG
 {
+    [GeneratedRegex("<(.*)=(.*)>")]
+    private static partial Regex QuestAlias();
+    public static Regex TextAliases => QuestAlias();
     [GeneratedRegex("(\\s?\\(.*\\)\\s?)")]
     private static partial Regex Hidden();
     public static Regex HiddenFN => Hidden();
