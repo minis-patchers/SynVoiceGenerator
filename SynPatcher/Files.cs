@@ -4,12 +4,18 @@ namespace SynPatcher;
 public class LineTracker
 {
     public HashSet<FormKey> forms = [];
-    public string guid = string.Empty;
-    public ulong splen = 0;
+    public List<VariantData> variants = [];
 }
 
-public class VoiceMeta {
+public struct LineData {
+    public string guid;
+    public ulong splen;
+}
+
+public class VariantData {
     public ulong splen = 0;
+    public string guid = string.Empty;
+    public IEnumerable<string>? reg_frags = null;
 }
 
 public static class Exts

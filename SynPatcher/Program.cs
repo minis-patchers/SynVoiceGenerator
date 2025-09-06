@@ -1,4 +1,6 @@
-﻿using Mutagen.Bethesda;
+﻿using CommandLine;
+using DynamicData.Kernel;
+using Mutagen.Bethesda;
 using Mutagen.Bethesda.Json;
 using Mutagen.Bethesda.Plugins;
 using Mutagen.Bethesda.Plugins.Cache;
@@ -78,31 +80,7 @@ public static class Program
         }
         if (File.Exists(Path.Join(EDFP, "map.json")))
         {
-            HashSet<FormKey> seenForms = [];
             lines = JsonConvert.DeserializeObject<List<LineTracker>>(File.ReadAllText(Path.Join(EDFP, "map.json")), settings) ?? [];
-            HashSet<LineTracker> empties = [];
-            foreach (var lin in lines)
-            {
-                HashSet<FormKey> rem = [];
-                foreach (var id in lin.forms)
-                {
-                    if (!seenForms.Add(id))
-                    {
-                        rem.Add(id);
-                    }
-                }
-                if (rem.Count != 0)
-                {
-                    Log($"Deduping {string.Join(',', rem.Select(x => x.ToString()))}", LogMode.NORMAL);
-                    lin.forms.Remove(rem);
-                }
-                if (lin.forms.Count == 0)
-                {
-                    empties.Add(lin);
-                }
-            }
-            Log($"Removing {empties.Count} empty lines", LogMode.NORMAL);
-            lines.Remove(empties);
         }
         Directory.CreateDirectory($"{EDFP}/VGOutput/mp3/");
         Directory.CreateDirectory($"{EDFP}/VGOutput/wav/");
@@ -114,58 +92,46 @@ public static class Program
         client.BaseAddress = new Uri($"https://api.elevenlabs.io");
         foreach (var (Name, FormKey) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (x.Name, x.FormKey)))
         {
-            var nam = $"{Name}";
+            var nam = Name?.String ?? "";
             nam = REG.HiddenFN.Replace(nam, "").Trim();
             nam = REG.HiddenFN2.Replace(nam, "").Trim();
             if (nam.IsNullOrEmpty()) continue;
-            //Ensure a completely unique GUID
-            var line = lines.FirstOrDefault(x => x?.forms.Any(fk => state.LinkCache.TryResolve<IDialogTopicGetter>(fk, out var output, ResolveTarget.Winner) && output.Name?.ToString() == nam) ?? false, null);
-            if (line != null)
-            {
-                line.forms.Add(FormKey);
-                continue;
-            }
-            var guid = Guid.NewGuid().ToString().ToUpper();
-            while (lines.Any(x => x.guid == $"{guid}") || File.Exists(Path.Join(EDFP, "VGOutput", "fuz", $"{guid}.fuz")))
-            {
-                Console.WriteLine("Regenerating identical guid");
-                guid = Guid.NewGuid().ToString().ToUpper();
-            }
             //Basic Text Line
             if (!nam.Contains('<') && !nam.Contains('>') && !(nam.StartsWith('(') && nam.EndsWith(')')) && !(nam.StartsWith('[') && !nam.EndsWith(']')) && !(nam.EndsWith('*') && nam.StartsWith('*')) && !nam.Contains('_') && nam.Trim() != "..." && !nam.StartsWith('$'))
             {
-                var vl = new LineTracker()
+                var dat = TryGen(nam);
+                if (dat != null)
                 {
-                    forms = [FormKey],
-                    guid = $"{guid}",
-                    splen = 0,
-                };
-                TryGen(vl, nam);
-            }
-            //Player alias
-            else if (nam.Contains("<Alias=Player>"))
-            {
-                foreach (var gpn in APIInfo.player_names)
-                {
-                    var gn = nam.Replace("<Alias=Player>", gpn);
-                    var vl = new LineTracker()
+                    lines.Add(new()
                     {
                         forms = [FormKey],
-                        guid = $"{guid}",
-                        splen = 0,
-                    };
-                    TryGen(vl, gn);
+                        variants = [
+                            new() {
+                                guid = dat.Value.guid,
+                                splen = dat.Value.splen,
+                                reg_frags = null,
+                            }
+                        ]
+                    });
                 }
             }
-            //Other (Unhandled)
+            //One of many different possible type variant data.
             else
             {
                 if (nam.Trim() != "...")
                 {
-                    var mtch = REG.TextAliases.Matches(nam);
-                    if (mtch.Count >= 1 && mtch.All(x => x.Captures.Count >= 2))
+                    var varGuid = Guid.NewGuid().ToString().ToUpper();
+                    while (lines.Any(x => x.variants.Any(x => x.guid == $"{varGuid}")) || File.Exists(Path.Join(EDFP, "VGOutput", "fuz", $"{varGuid}.fuz")))
                     {
-                        Log($"Aliases\n{string.Join(',', mtch.Select(x => $"\t{x.Captures[0]}={x.Captures[1]}\n"))}", LogMode.NORMAL);
+                        Console.WriteLine("Regenerating identical guid");
+                        varGuid = Guid.NewGuid().ToString().ToUpper();
+                    }
+                    var mtch = REG.TextAliases.Matches(nam);
+                    if (mtch.All(x => x.Groups.Count >= 3))
+                    {
+                        Log($"{mtch}", LogMode.NORMAL);
+                        Log($"Aliases\n{string.Join("\n", mtch.Select(x => $"\t{x.Groups[1].Value} = {x.Groups[2].Value}").ToHashSet())}", LogMode.NORMAL);
+                        Log(nam, LogMode.NORMAL);
                     }
                     //Log($"SGen \"{nam}\"", LogMode.NORMAL);
                 }
@@ -174,41 +140,62 @@ public static class Program
         File.WriteAllText(Path.Join(EDFP, "map.json"), JsonConvert.SerializeObject(lines, settings));
         foreach (var line in lines)
         {
-            if (File.Exists($"${EDFP}/VGOutput/fuz/{line.guid}.fuz"))
+            foreach (var id in line.forms)
             {
-                foreach (var id in line.forms)
+                var jso = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", id.ModKey.ToString(), $"{id.IDString()}.json");
+                File.WriteAllText(jso, JsonConvert.SerializeObject(line.variants));
+                foreach (var vd in line.variants)
                 {
-                    var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", id.ModKey.ToString(), $"{id.IDString()}.fuz");
-                    var jso = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", id.ModKey.ToString(), $"{id.IDString()}.json");
-                    File.Copy($"{EDFP}/VGOutput/fuz/{line.guid}.fuz", fp, true);
-                    File.WriteAllText(jso, JsonConvert.SerializeObject(new VoiceMeta() { splen = line.splen }));
+                    var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", id.ModKey.ToString(), $"{id.IDString()}-{vd.guid}.fuz");
+                    File.Copy($"{EDFP}/VGOutput/fuz/{vd.guid}.fuz", fp, true);
                 }
             }
         }
     }
 
-    static void TryGen(LineTracker line, string text)
+    static HashSet<VariantData> TryGenWithVData(IEnumerable<Dictionary<string, string>> replDicts, string textOLine)
     {
-        if (!generatedText.Contains(text))
+        HashSet<VariantData> variants = [];
+        foreach (var repls in replDicts)
         {
-            if (!APIInfo.dry_run)
+            var ltext = textOLine;
+            foreach (var rep in repls)
             {
-                try
-                {
-                    GenerateLive(line, text);
-                    lines.Add(line);
-                }
-                catch (Exception ex)
-                {
-                    Log($"{ex.Message}", LogMode.NORMAL);
-                    APIInfo.dry_run = true;
-                }
+                ltext = ltext.Replace(rep.Key, rep.Value);
             }
-            else
+            var data = TryGen(ltext);
+            if (data != null)
             {
-                GenerateDry(text);
+                variants.Add(new VariantData()
+                {
+                    guid = data.Value.guid,
+                    splen = data.Value.splen,
+                    reg_frags = repls.Values,
+                });
             }
-            generatedText.Add(text);
+        }
+        return variants;
+    }
+
+    static LineData? TryGen(string text)
+    {
+        if (!APIInfo.dry_run)
+        {
+            try
+            {
+                return GenerateLive(text);
+            }
+            catch (Exception ex)
+            {
+                Log($"{ex.Message}", LogMode.NORMAL);
+                APIInfo.dry_run = true;
+                return null;
+            }
+        }
+        else
+        {
+            GenerateDry(text);
+            return null;
         }
     }
 
@@ -223,14 +210,20 @@ public static class Program
     {
         Log($"DRY {og_txt}", LogMode.DEBUG);
     }
-    static void GenerateLive(LineTracker data, string text)
+    static LineData? GenerateLive(string text)
     {
-        var mp3name = Path.GetFullPath($"{EDFP}/VGOutput/mp3/{data.guid}.mp3");
-        var wavname = Path.GetFullPath($"{EDFP}/VGOutput/wav/{data.guid}.wav");
-        var rwavnam = Path.GetFullPath($"{EDFP}/VGOutput/wav/{data.guid}.resamp.wav");
-        var lipname = Path.GetFullPath($"{EDFP}/VGOutput/lip/{data.guid}.lip");
-        var xwmname = Path.GetFullPath($"{EDFP}/VGOutput/xwm/{data.guid}.xwm");
-        var fuzname = Path.GetFullPath($"{EDFP}/VGOutput/fuz/{data.guid}.fuz");
+        var guid = Guid.NewGuid().ToString().ToUpper();
+        while (lines.Any(x => x.variants.Any(x => x.guid == $"{guid}")) || File.Exists(Path.Join(EDFP, "VGOutput", "fuz", $"{guid}.fuz")))
+        {
+            Console.WriteLine("Regenerating identical guid");
+            guid = Guid.NewGuid().ToString().ToUpper();
+        }
+        var mp3name = Path.GetFullPath($"{EDFP}/VGOutput/mp3/{guid}.mp3");
+        var wavname = Path.GetFullPath($"{EDFP}/VGOutput/wav/{guid}.wav");
+        var rwavnam = Path.GetFullPath($"{EDFP}/VGOutput/wav/{guid}.resamp.wav");
+        var lipname = Path.GetFullPath($"{EDFP}/VGOutput/lip/{guid}.lip");
+        var xwmname = Path.GetFullPath($"{EDFP}/VGOutput/xwm/{guid}.xwm");
+        var fuzname = Path.GetFullPath($"{EDFP}/VGOutput/fuz/{guid}.fuz");
         if (!File.Exists(mp3name) && !File.Exists(fuzname))
         {
             Log($"Generating: {text}", LogMode.NORMAL);
@@ -251,7 +244,11 @@ public static class Program
         }
         if (!File.Exists(fuzname) && File.Exists(mp3name))
         {
-            data.splen = Exts.GetMp3Duration(mp3name);
+            LineData ret = new()
+            {
+                splen = Exts.GetMp3Duration(mp3name),
+                guid = guid,
+            };
             if (!File.Exists(wavname))
             {
                 Process.Start($"{EDFP}/ffmpeg.exe", $"-i \"{mp3name}\" -ac 1 \"{wavname}\"").WaitForExit();
@@ -265,12 +262,13 @@ public static class Program
         {
             Log($"Skipping {text}", LogMode.NORMAL);
         }
+        return null;
     }
 }
 
 public static partial class REG
 {
-    [GeneratedRegex("<(.*)=(.*)>")]
+    [GeneratedRegex("<([^=]*)=([^>]*)>")]
     private static partial Regex QuestAlias();
     public static Regex TextAliases => QuestAlias();
     [GeneratedRegex("(\\s?\\(.*\\)\\s?)")]
