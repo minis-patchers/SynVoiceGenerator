@@ -4,7 +4,7 @@ namespace SynPatcher;
 public class LineTracker
 {
     public HashSet<FormKey> forms = [];
-    public List<VariantData> variants = [];
+    public HashSet<VariantData> variants = [];
 }
 
 public struct LineData {
