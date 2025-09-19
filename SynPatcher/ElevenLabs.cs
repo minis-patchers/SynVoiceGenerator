@@ -11,7 +11,9 @@ public class ElevenLabs
     public VoiceSettings voice_settings = new();
     public bool dry_run = true;
     public LogMode log_mode = LogMode.NORMAL;
-    public HashSet<string> player_names = [];
+    public Dictionary<string, HashSet<string>> replacementLists = new(){
+        {"Alias=Player", ["Vrel"]}
+    };
 }
 
 struct Request(string t, ElevenLabs apiinfo)

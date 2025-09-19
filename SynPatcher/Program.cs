@@ -1,14 +1,9 @@
-﻿using CommandLine;
-using DynamicData.Kernel;
-using Mutagen.Bethesda;
+﻿using Mutagen.Bethesda;
 using Mutagen.Bethesda.Json;
-using Mutagen.Bethesda.Plugins;
-using Mutagen.Bethesda.Plugins.Cache;
 using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Synthesis;
 using Newtonsoft.Json;
 using Noggog;
-using Noggog.StructuredStrings;
 using System.Data;
 using System.Diagnostics;
 using System.IO.Compression;
@@ -18,6 +13,41 @@ using System.Text.RegularExpressions;
 namespace SynPatcher;
 public static class Program
 {
+    public static IEnumerable<(HashSet<string>, string)> GenerateTemplatedCartesianProduct(
+        this Dictionary<string, HashSet<string>> data,
+        string template)
+    {
+        // Start with a single empty dictionary to represent the initial state
+        IEnumerable<Dictionary<string, string>> combinations = [[]];
+
+        // Iterate through each key-value pair in the input dictionary
+        foreach (var entry in data)
+        {
+            // For each existing combination, create new combinations by adding each value from the current list
+            combinations = combinations.SelectMany(
+                existingCombination => entry.Value.Select(
+                    value =>
+                    {
+                        var newCombination = new Dictionary<string, string>(existingCombination);
+                        newCombination[entry.Key] = value;
+                        return newCombination;
+                    }));
+        }
+
+        // Now, format each generated combination into the template string
+        foreach (var combination in combinations)
+        {
+            HashSet<string> vals = [];
+            string formattedString = template;
+            foreach (var kvp in combination)
+            {
+                // Replace placeholders in the template with the corresponding values
+                vals.Add(kvp.Value);
+                formattedString = formattedString.Replace($"<{kvp.Key}>", kvp.Value);
+            }
+            yield return (vals, formattedString);
+        }
+    }
     public static async Task DownloadFileAsync(string fileUrl, string destinationPath)
     {
         try
@@ -37,8 +67,7 @@ public static class Program
             Console.WriteLine($"File I/O error: {ex.Message}");
         }
     }
-    static List<LineTracker> lines = [];
-    static readonly HashSet<string> generatedText = [];
+    static HashSet<LineTracker> lines = [];
     static Lazy<ElevenLabs> api = new();
     public static ElevenLabs APIInfo => api.Value;
     static readonly HttpClient client = new();
@@ -80,7 +109,10 @@ public static class Program
         }
         if (File.Exists(Path.Join(EDFP, "map.json")))
         {
-            lines = JsonConvert.DeserializeObject<List<LineTracker>>(File.ReadAllText(Path.Join(EDFP, "map.json")), settings) ?? [];
+            lines = JsonConvert.DeserializeObject<HashSet<LineTracker>>(File.ReadAllText(Path.Join(EDFP, "map.json")), settings) ?? [];
+            var remc = lines.Where(x => x.variants.Count == 0).Count();
+            Log($"Removing {remc} entries.", LogMode.NORMAL);
+            lines.RemoveWhere(x => x.variants.Count == 0);
         }
         Directory.CreateDirectory($"{EDFP}/VGOutput/mp3/");
         Directory.CreateDirectory($"{EDFP}/VGOutput/wav/");
@@ -92,27 +124,33 @@ public static class Program
         client.BaseAddress = new Uri($"https://api.elevenlabs.io");
         foreach (var (Name, FormKey) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (x.Name, x.FormKey)))
         {
-            var nam = Name?.String ?? "";
+            var line = lines.Where(x => x.forms.Contains(FormKey) || state.LinkCache.Resolve<IDialogTopicGetter>(FormKey).Name == Name).FirstOrDefault(new LineTracker
+            {
+                forms = [FormKey],
+                variants = [],
+            });
+            var nam = $"{Name}";
             nam = REG.HiddenFN.Replace(nam, "").Trim();
             nam = REG.HiddenFN2.Replace(nam, "").Trim();
             if (nam.IsNullOrEmpty()) continue;
             //Basic Text Line
             if (!nam.Contains('<') && !nam.Contains('>') && !(nam.StartsWith('(') && nam.EndsWith(')')) && !(nam.StartsWith('[') && !nam.EndsWith(']')) && !(nam.EndsWith('*') && nam.StartsWith('*')) && !nam.Contains('_') && nam.Trim() != "..." && !nam.StartsWith('$'))
             {
+                if(line.variants.Count > 0) {
+                    line.forms.Add(FormKey);
+                    Log($"Skipping {nam}", LogMode.NORMAL);
+                    continue;
+                }
                 var dat = TryGen(nam);
                 if (dat != null)
                 {
-                    lines.Add(new()
+                    line.variants.Add(new()
                     {
-                        forms = [FormKey],
-                        variants = [
-                            new() {
-                                guid = dat.Value.guid,
-                                splen = dat.Value.splen,
-                                reg_frags = null,
-                            }
-                        ]
+                        guid = dat.Value.guid,
+                        splen = dat.Value.splen,
+                        reg_frags = null,
                     });
+                    lines.Add(line);
                 }
             }
             //One of many different possible type variant data.
@@ -120,24 +158,38 @@ public static class Program
             {
                 if (nam.Trim() != "...")
                 {
-                    var varGuid = Guid.NewGuid().ToString().ToUpper();
-                    while (lines.Any(x => x.variants.Any(x => x.guid == $"{varGuid}")) || File.Exists(Path.Join(EDFP, "VGOutput", "fuz", $"{varGuid}.fuz")))
+                    var cont = APIInfo.replacementLists.Where(x => nam.Contains($"<{x.Key}>")).ToDictionary();
+                    foreach (var (vd, tline) in cont.GenerateTemplatedCartesianProduct(nam))
                     {
-                        Console.WriteLine("Regenerating identical guid");
-                        varGuid = Guid.NewGuid().ToString().ToUpper();
+                        Log($"{tline}", LogMode.NORMAL);
+                        if (!tline.Contains('<') && !tline.Contains('>') && !vd.All(x => line.variants.Any(y => y.reg_frags?.Contains(x) ?? false)))
+                        {
+                            var ld = TryGen(tline);
+                            if (ld != null)
+                            {
+                                line.variants.Add(new()
+                                {
+                                    guid = ld.Value.guid,
+                                    splen = ld.Value.splen,
+                                    reg_frags = vd,
+                                });
+                                lines.Add(line);
+                            }
+                        }
                     }
-                    var mtch = REG.TextAliases.Matches(nam);
-                    if (mtch.All(x => x.Groups.Count >= 3))
-                    {
-                        Log($"{mtch}", LogMode.NORMAL);
-                        Log($"Aliases\n{string.Join("\n", mtch.Select(x => $"\t{x.Groups[1].Value} = {x.Groups[2].Value}").ToHashSet())}", LogMode.NORMAL);
-                        Log(nam, LogMode.NORMAL);
-                    }
-                    //Log($"SGen \"{nam}\"", LogMode.NORMAL);
                 }
             }
         }
+        {
+            var remc = lines.Where(x => x.variants.Count == 0).Count();
+            Log($"Removing {remc} Lines with no variants.", LogMode.NORMAL);
+        }
         File.WriteAllText(Path.Join(EDFP, "map.json"), JsonConvert.SerializeObject(lines, settings));
+        var files = lines.SelectMany(x => x.forms).Select(x => x.ModKey.ToString()).Distinct().ToHashSet();
+        foreach (var fil in files)
+        {
+            Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", fil));
+        }
         foreach (var line in lines)
         {
             foreach (var id in line.forms)
@@ -152,31 +204,6 @@ public static class Program
             }
         }
     }
-
-    static HashSet<VariantData> TryGenWithVData(IEnumerable<Dictionary<string, string>> replDicts, string textOLine)
-    {
-        HashSet<VariantData> variants = [];
-        foreach (var repls in replDicts)
-        {
-            var ltext = textOLine;
-            foreach (var rep in repls)
-            {
-                ltext = ltext.Replace(rep.Key, rep.Value);
-            }
-            var data = TryGen(ltext);
-            if (data != null)
-            {
-                variants.Add(new VariantData()
-                {
-                    guid = data.Value.guid,
-                    splen = data.Value.splen,
-                    reg_frags = repls.Values,
-                });
-            }
-        }
-        return variants;
-    }
-
     static LineData? TryGen(string text)
     {
         if (!APIInfo.dry_run)
@@ -208,7 +235,7 @@ public static class Program
     }
     static void GenerateDry(string og_txt)
     {
-        Log($"DRY {og_txt}", LogMode.DEBUG);
+        Log($"DRY {og_txt}", LogMode.NORMAL);
     }
     static LineData? GenerateLive(string text)
     {

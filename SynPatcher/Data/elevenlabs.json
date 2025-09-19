@@ -11,5 +11,12 @@
     "dry_run": true,
     "log_mode": "NORMAL",
     "model_id": "eleven_flash_v2_5",
-    "player_names": []
+    "replacementLists": {
+        "Alias=Player": [
+            "Vrel"
+        ],
+        "Alias=CurrentRelic": [
+            "Silver Arrow"
+        ]
+    }
 }
