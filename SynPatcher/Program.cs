@@ -114,6 +114,7 @@ public static class Program
             Log($"Removing {remc} entries.", LogMode.NORMAL);
             lines.RemoveWhere(x => x.variants.Count == 0);
         }
+        var currentNumberOfLines = lines.Count;
         Directory.CreateDirectory($"{EDFP}/VGOutput/mp3/");
         Directory.CreateDirectory($"{EDFP}/VGOutput/wav/");
         Directory.CreateDirectory($"{EDFP}/VGOutput/wav/");
@@ -136,7 +137,8 @@ public static class Program
             //Basic Text Line
             if (!nam.Contains('<') && !nam.Contains('>') && !(nam.StartsWith('(') && nam.EndsWith(')')) && !(nam.StartsWith('[') && !nam.EndsWith(']')) && !(nam.EndsWith('*') && nam.StartsWith('*')) && !nam.Contains('_') && nam.Trim() != "..." && !nam.StartsWith('$'))
             {
-                if(line.variants.Count > 0) {
+                if (line.variants.Count > 0)
+                {
                     line.forms.Add(FormKey);
                     Log($"Skipping {nam}", LogMode.NORMAL);
                     continue;
@@ -284,6 +286,7 @@ public static class Program
             Process.Start($"{EDFP}/xWMAEncode.exe", $"\"{wavname}\" \"{xwmname}\"").WaitForExit();
             Process.Start($"{EDFP}/BmlFuzEncode.exe", $"\"{fuzname}\" \"{xwmname}\" \"{lipname}\"").WaitForExit();
             Log($"Generated {text}", LogMode.NORMAL);
+            return ret;
         }
         else
         {
