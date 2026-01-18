@@ -131,7 +131,8 @@ public static class Program
                             foreach (var lin in lines)
                             {
                                 var ld = lin.forms.Where(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dl));
-                                if(ld.Any()) {
+                                if(ld.Any())
+                                {
                                     FormKey formKey = lin.forms.First();
                                     var dt = state.LinkCache.Resolve<IDialogTopicGetter>(formKey);
                                     if ($"{dt.Name}" == $"{vt.Name}")
