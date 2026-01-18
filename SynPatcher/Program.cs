@@ -130,7 +130,7 @@ public static class Program
                             dtd = vt.Name!.ToString()!;
                             foreach (var lin in lines)
                             {
-                                var ld = lin.forms.Where(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dl))
+                                var ld = lin.forms.Where(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dl));
                                 if(ld.Any()) {
                                 FormKey formKey = lin.forms.First();
                                 var dt = state.LinkCache.Resolve<IDialogTopicGetter>(formKey);
