@@ -247,7 +247,7 @@ public static class Program
             foreach (var id in line.forms)
             {
                 var jso = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", id.ModKey.ToString(), $"{id.IDString()}.json");
-                File.WriteAllText(jso, JsonConvert.SerializeObject(line.variants));
+                File.WriteAllText(jso, JsonConvert.SerializeObject(line.variants, settings));
                 foreach (var vd in line.variants)
                 {
                     var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", id.ModKey.ToString(), $"{id.IDString()}-{vd.guid}.fuz");
