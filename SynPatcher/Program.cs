@@ -132,15 +132,17 @@ public static class Program
                             {
                                 var ld = lin.forms.Where(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dl));
                                 if(ld.Any()) {
-                                FormKey formKey = lin.forms.First();
-                                var dt = state.LinkCache.Resolve<IDialogTopicGetter>(formKey);
-                                if (dt.Name!.TargetLanguage.ToString() == vt.Name.TargetLanguage.ToString())
-                                {
-                                    found = true;
-                                    lin.forms.Add(fk);
-                                    break;
+                                    FormKey formKey = lin.forms.First();
+                                    var dt = state.LinkCache.Resolve<IDialogTopicGetter>(formKey);
+                                    if ($"{dt.Name}" == $"{vt.Name}")
+                                    {
+                                        found = true;
+                                        lin.forms.Add(fk);
+                                        break;
+                                    }
                                 }
-                                } else {
+                                else
+                                {
                                     continue;
                                 }
                             }
@@ -177,7 +179,7 @@ public static class Program
                 forms = [FormKey],
                 variants = [],
             });
-            var nam = $"{Name!.TargetLanguage}";
+            var nam = $"{Name}";
             nam = REG.HiddenFN.Replace(nam, "").Trim();
             nam = REG.HiddenFN2.Replace(nam, "").Trim();
             if (nam.IsNullOrEmpty()) continue;
