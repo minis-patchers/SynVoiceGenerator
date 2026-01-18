@@ -130,13 +130,18 @@ public static class Program
                             dtd = vt.Name!.ToString()!;
                             foreach (var lin in lines)
                             {
-                                FormKey formKey = lin.forms.First(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dl));
+                                var ld = lin.forms.Where(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dl))
+                                if(ld.Any()) {
+                                FormKey formKey = lin.forms.First();
                                 var dt = state.LinkCache.Resolve<IDialogTopicGetter>(formKey);
                                 if (dt.Name!.TargetLanguage.ToString() == vt.Name.TargetLanguage.ToString())
                                 {
                                     found = true;
                                     lin.forms.Add(fk);
                                     break;
+                                }
+                                } else {
+                                    continue;
                                 }
                             }
                         }
