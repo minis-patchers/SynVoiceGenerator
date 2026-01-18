@@ -1,5 +1,6 @@
 ﻿using Mutagen.Bethesda;
 using Mutagen.Bethesda.Json;
+using Mutagen.Bethesda.Plugins;
 using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Synthesis;
 using Newtonsoft.Json;
@@ -11,6 +12,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 
 namespace SynPatcher;
+
 public static class Program
 {
     public static IEnumerable<(HashSet<string>, string)> GenerateTemplatedCartesianProduct(
@@ -107,11 +109,51 @@ public static class Program
         {
             File.Copy(Path.Join(CKTools, "LipGen", "LipGenerator", "FonixData.cdf"), "FonixData.cdf");
         }
-        if (File.Exists(Path.Join(EDFP, "map.json")))
+        var vp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice");
+        if (Directory.Exists(vp))
         {
-            lines = JsonConvert.DeserializeObject<HashSet<LineTracker>>(File.ReadAllText(Path.Join(EDFP, "map.json")), settings) ?? [];
-            var remc = lines.Where(x => x.variants.Count == 0).Count();
-            Log($"Removing {remc} entries.", LogMode.NORMAL);
+            foreach (var dir in Directory.EnumerateDirectories(vp))
+            {
+                var fn = dir.Split("/").Last();
+                Console.WriteLine($"Loading files for {fn}");
+                foreach (var file in Directory.EnumerateFiles(dir))
+                {
+                    if (file.EndsWith(".json"))
+                    {
+                        var form = file.Split("/").Last().Split(".").First();
+                        var fk = FormKey.Factory($"{form}:{fn}");
+                        Console.WriteLine($"Loading entry for {fk}");
+                        string dtd = string.Empty;
+                        bool found = false;
+                        if (state.LinkCache.TryResolve<IDialogTopicGetter>(fk, out var vt))
+                        {
+                            dtd = vt.Name!.ToString()!;
+                            foreach (var lin in lines)
+                            {
+                                FormKey formKey = lin.forms.First(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dl));
+                                var dt = state.LinkCache.Resolve<IDialogTopicGetter>(formKey);
+                                if (dt.Name!.TargetLanguage.ToString() == vt.Name.TargetLanguage.ToString())
+                                {
+                                    found = true;
+                                    lin.forms.Add(fk);
+                                    break;
+                                }
+                            }
+                        }
+                        if (!found)
+                        {
+                            var lt = new LineTracker();
+                            lt.forms.Add(fk);
+                            lt.variants = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
+                            lines.Add(lt);
+                        }
+                    }
+                }
+            }
+        }
+        {
+            var remc = lines.Count(x => x.variants.Count == 0);
+            Log($"Removing {remc} entries with no variants.", LogMode.NORMAL);
             lines.RemoveWhere(x => x.variants.Count == 0);
         }
         var currentNumberOfLines = lines.Count;
@@ -130,7 +172,7 @@ public static class Program
                 forms = [FormKey],
                 variants = [],
             });
-            var nam = $"{Name}";
+            var nam = $"{Name!.TargetLanguage}";
             nam = REG.HiddenFN.Replace(nam, "").Trim();
             nam = REG.HiddenFN2.Replace(nam, "").Trim();
             if (nam.IsNullOrEmpty()) continue;
