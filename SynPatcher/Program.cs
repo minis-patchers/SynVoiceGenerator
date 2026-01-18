@@ -114,13 +114,13 @@ public static class Program
         {
             foreach (var dir in Directory.EnumerateDirectories(vp))
             {
-                var fn = dir.Split("/").Last();
+                var fn = dir.Split("\\").Last();
                 Console.WriteLine($"Loading files for {fn}");
                 foreach (var file in Directory.EnumerateFiles(dir))
                 {
                     if (file.EndsWith(".json"))
                     {
-                        var form = file.Split("/").Last().Split(".").First();
+                        var form = file.Split("\\").Last().Split(".").First();
                         var fk = FormKey.Factory($"{form}:{fn}");
                         Console.WriteLine($"Loading entry for {fk}");
                         string dtd = string.Empty;
