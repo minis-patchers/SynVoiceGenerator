@@ -109,8 +109,7 @@ public static class Program
         {
             File.Copy(Path.Join(CKTools, "LipGen", "LipGenerator", "FonixData.cdf"), "FonixData.cdf");
         }
-        var vp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice");
-        /*
+        var vp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data");
         if (Directory.Exists(vp))
         {
             foreach (var dir in Directory.EnumerateDirectories(vp))
@@ -144,8 +143,8 @@ public static class Program
                     }
                 }
             }
-        }*/
-        lines = JsonConvert.DeserializeObject<HashSet<LineTracker>>(File.ReadAllText($"{EDFP}/map.json"), settings)!;
+        }
+        //lines = JsonConvert.DeserializeObject<HashSet<LineTracker>>(File.ReadAllText($"{EDFP}/map.json"), settings)!;
         {
             var remc = lines.Count(x => x.variants.Count == 0);
             Log($"Removing {remc} entries with no variants.", LogMode.NORMAL);
@@ -223,22 +222,25 @@ public static class Program
             var remc = lines.Where(x => x.variants.Count == 0).Count();
             Log($"Removing {remc} Lines with no variants.", LogMode.NORMAL);
         }
-        File.WriteAllText(Path.Join(EDFP, "map.json"), JsonConvert.SerializeObject(lines, settings));
         var files = lines.SelectMany(x => x.forms).Select(x => x.ModKey.ToString()).Distinct().ToHashSet();
         foreach (var fil in files)
         {
-            Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", fil));
+            Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data", fil));
         }
+        Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Voice"));
         foreach (var line in lines)
         {
             foreach (var id in line.forms)
             {
-                var jso = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", id.ModKey.ToString(), $"{id.IDString()}.json");
+                var jso = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data", id.ModKey.ToString(), $"{id.IDString()}.json");
                 File.WriteAllText(jso, JsonConvert.SerializeObject(line.variants, settings));
                 foreach (var vd in line.variants)
                 {
-                    var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", id.ModKey.ToString(), $"{vd.guid}.fuz");
-                    File.Copy($"{EDFP}/VGOutput/fuz/{vd.guid}.fuz", fp, true);
+                    var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Voice", $"{vd.guid}.fuz");
+                    if (!File.Exists(fp) && File.Exists($"{EDFP}/VGOutput/fuz/{vd.guid}"))
+                    {
+                        File.Copy($"{EDFP}/VGOutput/fuz/{vd.guid}.fuz", fp, true);
+                    }
                 }
             }
         }
