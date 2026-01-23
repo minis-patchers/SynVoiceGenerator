@@ -123,37 +123,22 @@ public static class Program
                         var form = file.Split("\\").Last().Split(".").First();
                         var fk = FormKey.Factory($"{form}:{fn}");
                         Console.WriteLine($"Loading entry for {fk}");
-                        bool found = false;
+
                         if (state.LinkCache.TryResolve<IDialogTopicGetter>(fk, out var vt))
                         {
-                            foreach (var lin in lines)
+                            var lin = lines.Where(x => x.forms.Where(y => state.LinkCache.TryResolve<IDialogTopicGetter>(y, out var dl) && $"{dl.Name}" == $"{vt.Name}").Any());
+                            if (lin.Any())
                             {
-                                Console.WriteLine($"{vt.Name!}");
-                                var ld = lin.forms.Where(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dl));
-                                if (ld.Any())
-                                {
-                                    FormKey formKey = lin.forms.First();
-                                    var dt = state.LinkCache.Resolve<IDialogTopicGetter>(formKey);
-                                    if ($"{dt.Name}" == $"{vt.Name}")
-                                    {
-                                        found = true;
-                                        lin.forms.Add(fk);
-                                        break;
-                                    }
-                                }
-                                else
-                                {
-                                    continue;
-                                }
+                                Console.WriteLine($"Merging {lin.First().forms.First()} and {fk} with text {vt.Name}");
+                                lin.First().forms.Add(fk);
                             }
-                        }
-                        if (!found)
-                        {
-                            Console.WriteLine($"Not found creating LT Entry");
-                            var lt = new LineTracker();
-                            lt.forms.Add(fk);
-                            lt.variants = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
-                            lines.Add(lt);
+                            else
+                            {
+                                var lt = new LineTracker();
+                                lt.forms.Add(fk);
+                                lt.variants = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
+                                lines.Add(lt);
+                            }
                         }
                     }
                 }
