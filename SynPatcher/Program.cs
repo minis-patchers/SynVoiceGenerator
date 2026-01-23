@@ -123,15 +123,14 @@ public static class Program
                         var form = file.Split("\\").Last().Split(".").First();
                         var fk = FormKey.Factory($"{form}:{fn}");
                         Console.WriteLine($"Loading entry for {fk}");
-                        string dtd = string.Empty;
                         bool found = false;
                         if (state.LinkCache.TryResolve<IDialogTopicGetter>(fk, out var vt))
                         {
-                            dtd = vt.Name!.ToString()!;
                             foreach (var lin in lines)
                             {
+                                Console.WriteLine($"{vt.Name!}");
                                 var ld = lin.forms.Where(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dl));
-                                if(ld.Any())
+                                if (ld.Any())
                                 {
                                     FormKey formKey = lin.forms.First();
                                     var dt = state.LinkCache.Resolve<IDialogTopicGetter>(formKey);
@@ -150,6 +149,7 @@ public static class Program
                         }
                         if (!found)
                         {
+                            Console.WriteLine($"Not found creating LT Entry");
                             var lt = new LineTracker();
                             lt.forms.Add(fk);
                             lt.variants = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
