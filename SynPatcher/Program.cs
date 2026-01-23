@@ -110,6 +110,7 @@ public static class Program
             File.Copy(Path.Join(CKTools, "LipGen", "LipGenerator", "FonixData.cdf"), "FonixData.cdf");
         }
         var vp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice");
+        /*
         if (Directory.Exists(vp))
         {
             foreach (var dir in Directory.EnumerateDirectories(vp))
@@ -143,7 +144,8 @@ public static class Program
                     }
                 }
             }
-        }
+        }*/
+        lines = JsonConvert.DeserializeObject<HashSet<LineTracker>>(File.ReadAllText($"{EDFP}/map.json"))!;
         {
             var remc = lines.Count(x => x.variants.Count == 0);
             Log($"Removing {remc} entries with no variants.", LogMode.NORMAL);
@@ -235,7 +237,7 @@ public static class Program
                 File.WriteAllText(jso, JsonConvert.SerializeObject(line.variants, settings));
                 foreach (var vd in line.variants)
                 {
-                    var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", id.ModKey.ToString(), $"{id.IDString()}-{vd.guid}.fuz");
+                    var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", id.ModKey.ToString(), $"{vd.guid}.fuz");
                     File.Copy($"{EDFP}/VGOutput/fuz/{vd.guid}.fuz", fp, true);
                 }
             }
