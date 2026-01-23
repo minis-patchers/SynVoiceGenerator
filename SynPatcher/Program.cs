@@ -145,7 +145,7 @@ public static class Program
                 }
             }
         }*/
-        lines = JsonConvert.DeserializeObject<HashSet<LineTracker>>(File.ReadAllText($"{EDFP}/map.json"))!;
+        lines = JsonConvert.DeserializeObject<HashSet<LineTracker>>(File.ReadAllText($"{EDFP}/map.json"), settings)!;
         {
             var remc = lines.Count(x => x.variants.Count == 0);
             Log($"Removing {remc} entries with no variants.", LogMode.NORMAL);
