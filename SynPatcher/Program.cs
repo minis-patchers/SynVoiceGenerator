@@ -223,6 +223,7 @@ public static class Program
             Log($"Removing {remc} Lines with no variants.", LogMode.NORMAL);
         }
         var files = lines.SelectMany(x => x.forms).Select(x => x.ModKey.ToString()).Distinct().ToHashSet();
+        Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data"));
         foreach (var fil in files)
         {
             Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data", fil));
