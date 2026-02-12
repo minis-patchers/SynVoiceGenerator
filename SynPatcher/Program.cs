@@ -188,7 +188,10 @@ public static class Program
                         splen = dat.Value.splen,
                         reg_frags = null,
                     });
-                    lines.Add(line);
+                    if (!lines.Contains(line))
+                    {
+                        lines.Add(line);
+                    }
                 }
             }
             //One of many different possible type variant data.
@@ -211,7 +214,10 @@ public static class Program
                                     splen = ld.Value.splen,
                                     reg_frags = vd,
                                 });
-                                lines.Add(line);
+                                if (!lines.Contains(line))
+                                {
+                                    lines.Add(line);
+                                }
                             }
                         }
                     }
