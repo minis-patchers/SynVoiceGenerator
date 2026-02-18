@@ -114,8 +114,7 @@ public static class Program
         {
             foreach (var dir in Directory.EnumerateDirectories(vp))
             {
-                var di = new DirectoryInfo(dir);
-                var fn = di.Name;
+                var fn = new DirectoryInfo(dir).Name;
                 Console.WriteLine($"Loading files for {fn}");
                 if (!state.LoadOrder.ModExists(fn)) continue;
                 foreach (var file in Directory.EnumerateFiles(dir))
@@ -248,9 +247,11 @@ public static class Program
                 foreach (var vd in line.variants)
                 {
                     var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Voice", $"{vd.guid}.fuz");
-                    if (!File.Exists(fp) && File.Exists($"{EDFP}/VGOutput/fuz/{vd.guid}.fuz"))
+                    var ep = Path.Join(state.ExtraSettingsDataPath, "VGOutput", "fuz", $"{vd.guid}.fuz");
+                    if (!File.Exists(fp) && File.Exists(ep))
                     {
-                        File.Copy($"{EDFP}/VGOutput/fuz/{vd.guid}.fuz", fp, true);
+                        Console.WriteLine($"Copying {vd.guid} to Game Path");
+                        File.Copy(ep, fp, true);
                     }
                 }
             }
