@@ -129,29 +129,27 @@ public static class Program
                             var lin = lines.Where(x => x.forms.Where(y => state.LinkCache.TryResolve<IDialogTopicGetter>(y, out var dl) && $"{dl.Name}" == $"{vt.Name}").Any());
                             if (lin.Any())
                             {
-                                Console.WriteLine($"Merging {lin.First().forms.First()} and {fk} with text {vt.Name}");
-                                lin.First().forms.Add(fk);
                                 var varint = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
+                                Console.WriteLine($"Merging {lin.First().forms.First()} with {lin.First().variants.Count} variants with {fk} containing text {vt.Name} and {varint.Count}");
+                                lin.First().forms.Add(fk);
                                 lin.First().variants.Add(varint);
                                 lin.First().variants = lin.First().variants.DistinctBy(x => x.guid).ToHashSet();
+                                Console.WriteLine($"Final Variant Count {lin.First().variants.Count}");
                             }
                             else
                             {
                                 var lt = new LineTracker();
                                 lt.forms.Add(fk);
                                 lt.variants = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
-                                lines.Add(lt);
+                                if (lt.variants.Count > 0)
+                                {
+                                    lines.Add(lt);
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-        //lines = JsonConvert.DeserializeObject<HashSet<LineTracker>>(File.ReadAllText($"{EDFP}/map.json"), settings)!;
-        {
-            var remc = lines.Count(x => x.variants.Count == 0);
-            Log($"Removing {remc} entries with no variants.", LogMode.NORMAL);
-            lines.RemoveWhere(x => x.variants.Count == 0);
         }
         var currentNumberOfLines = lines.Count;
         Directory.CreateDirectory($"{EDFP}/VGOutput/mp3/");
@@ -230,6 +228,7 @@ public static class Program
         {
             var remc = lines.Where(x => x.variants.Count == 0).Count();
             Log($"Removing {remc} Lines with no variants.", LogMode.NORMAL);
+            lines.RemoveWhere(x => x.variants.Count == 0);
         }
         var files = lines.SelectMany(x => x.forms).Select(x => x.ModKey.ToString()).Distinct().ToHashSet();
         Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data"));
