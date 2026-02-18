@@ -114,16 +114,17 @@ public static class Program
         {
             foreach (var dir in Directory.EnumerateDirectories(vp))
             {
-                var fn = dir.Split("\\").Last();
+                var di = new DirectoryInfo(dir);
+                var fn = di.Name;
                 Console.WriteLine($"Loading files for {fn}");
+                if (!state.LoadOrder.ModExists(fn)) continue;
                 foreach (var file in Directory.EnumerateFiles(dir))
                 {
                     if (file.EndsWith(".json"))
                     {
-                        var form = file.Split("\\").Last().Split(".").First();
+                        var form = Path.GetFileNameWithoutExtension(file);
                         var fk = FormKey.Factory($"{form}:{fn}");
                         Console.WriteLine($"Loading entry for {fk}");
-
                         if (state.LinkCache.TryResolve<IDialogTopicGetter>(fk, out var vt))
                         {
                             var lin = lines.Where(x => x.forms.Where(y => state.LinkCache.TryResolve<IDialogTopicGetter>(y, out var dl) && $"{dl.Name}" == $"{vt.Name}").Any());
@@ -131,6 +132,9 @@ public static class Program
                             {
                                 Console.WriteLine($"Merging {lin.First().forms.First()} and {fk} with text {vt.Name}");
                                 lin.First().forms.Add(fk);
+                                var varint = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
+                                lin.First().variants.Add(varint);
+                                lin.First().variants = lin.First().variants.DistinctBy(x => x.guid).ToHashSet();
                             }
                             else
                             {
@@ -170,15 +174,15 @@ public static class Program
             nam = REG.HiddenFN.Replace(nam, "").Trim();
             nam = REG.HiddenFN2.Replace(nam, "").Trim();
             if (nam.IsNullOrEmpty()) continue;
+            if (line.variants.Count > 0)
+            {
+                line.forms.Add(FormKey);
+                Log($"Skipping {nam}", LogMode.NORMAL);
+                continue;
+            }
             //Basic Text Line
             if (!nam.Contains('<') && !nam.Contains('>') && !(nam.StartsWith('(') && nam.EndsWith(')')) && !(nam.StartsWith('[') && !nam.EndsWith(']')) && !(nam.EndsWith('*') && nam.StartsWith('*')) && !nam.Contains('_') && nam.Trim() != "..." && !nam.StartsWith('$'))
             {
-                if (line.variants.Count > 0)
-                {
-                    line.forms.Add(FormKey);
-                    Log($"Skipping {nam}", LogMode.NORMAL);
-                    continue;
-                }
                 var dat = TryGen(nam);
                 if (dat != null)
                 {
@@ -244,7 +248,7 @@ public static class Program
                 foreach (var vd in line.variants)
                 {
                     var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Voice", $"{vd.guid}.fuz");
-                    if (!File.Exists(fp) && File.Exists($"{EDFP}/VGOutput/fuz/{vd.guid}"))
+                    if (!File.Exists(fp) && File.Exists($"{EDFP}/VGOutput/fuz/{vd.guid}.fuz"))
                     {
                         File.Copy($"{EDFP}/VGOutput/fuz/{vd.guid}.fuz", fp, true);
                     }
