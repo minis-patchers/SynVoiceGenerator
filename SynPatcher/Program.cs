@@ -158,8 +158,8 @@ public static class Program
         Directory.CreateDirectory($"{EDFP}/VGOutput/lip/");
         Directory.CreateDirectory($"{EDFP}/VGOutput/xwm/");
         Directory.CreateDirectory($"{EDFP}/VGOutput/fuz/");
-        client.DefaultRequestHeaders.Add("xi-api-key", APIInfo.key);
-        client.BaseAddress = new Uri($"https://api.elevenlabs.io");
+        //client.DefaultRequestHeaders.Add("xi-api-key", APIInfo.key);
+        client.BaseAddress = new Uri($"http://localhost:8000");
         foreach (var (Name, FormKey) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (x.Name, x.FormKey)))
         {
             var line = lines.Where(x => x.forms.Contains(FormKey) || state.LinkCache.Resolve<IDialogTopicGetter>(FormKey).Name == Name).FirstOrDefault(new LineTracker
@@ -307,7 +307,7 @@ public static class Program
         {
             Log($"Generating: {text}", LogMode.NORMAL);
             StringContent stringContent = new(JsonConvert.SerializeObject(new Request(text, APIInfo)), Encoding.UTF8, "application/json");
-            var cli = client.PostAsync($"/v1/text-to-speech/{APIInfo.voice_id}?output_format=mp3_44100_128", stringContent);
+            var cli = client.PostAsync($"/speak", stringContent);
             cli.Wait();
             if (cli.Result.IsSuccessStatusCode)
             {
