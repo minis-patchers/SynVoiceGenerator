@@ -311,7 +311,7 @@ public static class Program
             cli.Wait();
             if (cli.Result.IsSuccessStatusCode)
             {
-                var file = File.OpenWrite(mp3name);
+                var file = File.OpenWrite(wavname);
                 cli.Result.Content.CopyTo(file, null, CancellationToken.None);
                 file.Close();
             }
@@ -321,17 +321,17 @@ public static class Program
                 throw new Exception("Out of requests");
             }
         }
-        if (!File.Exists(fuzname) && File.Exists(mp3name))
+        if (!File.Exists(fuzname) && File.Exists(wavname))
         {
+            if (!File.Exists(mp3name))
+            {
+                Process.Start($"{EDFP}/ffmpeg.exe", $"-i \"{wavname}\" -ac 1 \"{mp3name}\"").WaitForExit();
+            }
             LineData ret = new()
             {
                 splen = Exts.GetMp3Duration(mp3name),
                 guid = guid,
             };
-            if (!File.Exists(wavname))
-            {
-                Process.Start($"{EDFP}/ffmpeg.exe", $"-i \"{mp3name}\" -ac 1 \"{wavname}\"").WaitForExit();
-            }
             Process.Start($"{EDFP}/FaceFXWrapper.exe", $"Skyrim USEnglish FonixData.cdf \"{wavname}\" \"{rwavnam}\" \"{lipname}\" \"{text.Replace("\"", "\\\"")}\"").WaitForExit();
             Process.Start($"{EDFP}/xWMAEncode.exe", $"\"{wavname}\" \"{xwmname}\"").WaitForExit();
             Process.Start($"{EDFP}/BmlFuzEncode.exe", $"\"{fuzname}\" \"{xwmname}\" \"{lipname}\"").WaitForExit();
