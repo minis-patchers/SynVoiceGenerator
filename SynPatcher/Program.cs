@@ -81,7 +81,7 @@ public static class Program
     }
     static bool IsValidChar(char x)
     {
-        return Char.IsLetterOrDigit(x) || Char.IsPunctuation(x) || x == '<' || x == '>';
+        return Char.IsAsciiLetterOrDigit(x) || Char.IsPunctuation(x) || x == '<' || x == '>' || x == ' ';
     }
     static string CleanString(string str)
     {
