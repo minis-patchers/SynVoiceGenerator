@@ -85,7 +85,7 @@ public static class Program
     }
     static string CleanString(string str)
     {
-        return new string(REG.HiddenFN2.Replace(REG.HiddenFN.Replace(str, ""), "").Where(IsValidChar).ToArray()).Trim();
+        return new string(REG.HiddenFN2.Replace(REG.HiddenFN.Replace(str, ""), "").Replace("...", "").Where(IsValidChar).ToArray()).Trim();
     }
     static void Patch(IPatcherState<ISkyrimMod, ISkyrimModGetter> state)
     {
