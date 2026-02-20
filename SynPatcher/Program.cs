@@ -126,7 +126,7 @@ public static class Program
                         Console.WriteLine($"Loading entry for {fk}");
                         if (state.LinkCache.TryResolve<IDialogTopicGetter>(fk, out var vt))
                         {
-                            var lin = lines.Where(x => x.forms.Where(y => state.LinkCache.TryResolve<IDialogTopicGetter>(y, out var dl) && $"{dl.Name}" == $"{vt.Name}").Any());
+                            var lin = lines.Where(x => x.forms.Where(y => state.LinkCache.TryResolve<IDialogTopicGetter>(y, out var dl) && REG.HiddenFN2.Replace(REG.HiddenFN.Replace($"{dl.Name}", ""), "").Trim() == REG.HiddenFN2.Replace(REG.HiddenFN.Replace($"{vt.Name}", ""), "").Trim()).Any());
                             if (lin.Any())
                             {
                                 var varint = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
@@ -160,27 +160,24 @@ public static class Program
         Directory.CreateDirectory($"{EDFP}/VGOutput/fuz/");
         //client.DefaultRequestHeaders.Add("xi-api-key", APIInfo.key);
         client.BaseAddress = new Uri($"http://localhost:8000");
-        foreach (var (Name, FormKey) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (x.Name, x.FormKey)))
+        foreach (var (Name, FormKey) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (REG.HiddenFN2.Replace(REG.HiddenFN.Replace($"{x.Name}", ""), "").Trim(), x.FormKey)))
         {
-            var line = lines.Where(x => x.forms.Contains(FormKey) || state.LinkCache.Resolve<IDialogTopicGetter>(FormKey).Name == Name).FirstOrDefault(new LineTracker
+            var line = lines.Where(x => x.forms.Contains(FormKey) || REG.HiddenFN2.Replace(REG.HiddenFN.Replace($"{state.LinkCache.Resolve<IDialogTopicGetter>(FormKey).Name}", ""), "").Trim() == Name).FirstOrDefault(new LineTracker
             {
                 forms = [FormKey],
                 variants = [],
             });
-            var nam = $"{Name}";
-            nam = REG.HiddenFN.Replace(nam, "").Trim();
-            nam = REG.HiddenFN2.Replace(nam, "").Trim();
-            if (nam.IsNullOrEmpty()) continue;
+            if (Name.IsNullOrEmpty()) continue;
             if (line.variants.Count > 0)
             {
                 line.forms.Add(FormKey);
-                Log($"Skipping {nam}", LogMode.NORMAL);
+                Log($"Skipping {Name}", LogMode.NORMAL);
                 continue;
             }
             //Basic Text Line
-            if (!nam.Contains('<') && !nam.Contains('>') && !(nam.StartsWith('(') && nam.EndsWith(')')) && !(nam.StartsWith('[') && !nam.EndsWith(']')) && !(nam.EndsWith('*') && nam.StartsWith('*')) && !nam.Contains('_') && nam.Trim() != "..." && !nam.StartsWith('$'))
+            if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && Name.Trim() != "..." && !Name.StartsWith('$'))
             {
-                var dat = TryGen(nam);
+                var dat = TryGen(Name);
                 if (dat != null)
                 {
                     line.variants.Add(new()
@@ -198,10 +195,10 @@ public static class Program
             //One of many different possible type variant data.
             else
             {
-                if (nam.Trim() != "...")
+                if (Name.Trim() != "...")
                 {
-                    var cont = APIInfo.replacementLists.Where(x => nam.Contains($"<{x.Key}>")).ToDictionary();
-                    foreach (var (vd, tline) in cont.GenerateTemplatedCartesianProduct(nam))
+                    var cont = APIInfo.replacementLists.Where(x => Name.Contains($"<{x.Key}>")).ToDictionary();
+                    foreach (var (vd, tline) in cont.GenerateTemplatedCartesianProduct(Name))
                     {
                         Log($"{tline}", LogMode.NORMAL);
                         if (!tline.Contains('<') && !tline.Contains('>') && !vd.All(x => line.variants.Any(y => y.reg_frags?.Contains(x) ?? false)))
