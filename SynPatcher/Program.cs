@@ -155,7 +155,7 @@ public static class Program
                 }
             }
         }
-        var currentNumberOfLines = lines.Count;
+        Console.WriteLine($"Read {lines.Count} objects");
         Directory.CreateDirectory($"{EDFP}/VGOutput/mp3/");
         Directory.CreateDirectory($"{EDFP}/VGOutput/wav/");
         Directory.CreateDirectory($"{EDFP}/VGOutput/wav/");
