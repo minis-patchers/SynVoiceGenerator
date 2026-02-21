@@ -3,5 +3,5 @@
     <Nullable>enable</Nullable>
     <WarningsAsErrors>nullable</WarningsAsErrors>
     <ImplicitUsings>true</ImplicitUsings>
-  </PropertyGroup>  
+  </PropertyGroup>
 </Project>
