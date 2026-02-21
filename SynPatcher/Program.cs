@@ -189,6 +189,17 @@ public static class Program
             Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data", fil));
         }
         Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Voice"));
+        var variants = lines.SelectMany(x => x.Value.variants).ToHashSet();
+        foreach (var vd in variants)
+        {
+            var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Voice", $"{vd.guid}.fuz");
+            var ep = Path.Join(state.ExtraSettingsDataPath, "VGOutput", "fuz", $"{vd.guid}.fuz");
+            if (!File.Exists(fp) && File.Exists(ep))
+            {
+                Console.WriteLine($"Copying {vd.guid} to Game Path");
+                File.Copy(ep, fp, true);
+            }
+        }
         foreach (var line in lines)
         {
             foreach (var id in line.Value.forms)
@@ -196,17 +207,8 @@ public static class Program
                 var jso = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data", id.ModKey.ToString(), $"{id.IDString()}.json");
                 if (line.Value.variants.Count > 0)
                 {
+                    Console.WriteLine($"Writing {jso}");
                     File.WriteAllText(jso, JsonConvert.SerializeObject(line.Value.variants, settings));
-                    foreach (var vd in line.Value.variants)
-                    {
-                        var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Voice", $"{vd.guid}.fuz");
-                        var ep = Path.Join(state.ExtraSettingsDataPath, "VGOutput", "fuz", $"{vd.guid}.fuz");
-                        if (!File.Exists(fp) && File.Exists(ep))
-                        {
-                            Console.WriteLine($"Copying {vd.guid} to Game Path");
-                            File.Copy(ep, fp, true);
-                        }
-                    }
                 }
                 else
                 {
