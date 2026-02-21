@@ -286,7 +286,7 @@ public static class Program
         if (!File.Exists(mp3name) && !File.Exists(fuzname))
         {
             Log($"Generating: {text}", LogMode.NORMAL);
-            StringContent stringContent = new(JsonConvert.SerializeObject(new Request(text, "", APIInfo)), Encoding.UTF8, "application/json");
+            StringContent stringContent = new(JsonConvert.SerializeObject(new Request(text, APIInfo)), Encoding.UTF8, "application/json");
             var cli = client.PostAsync($"/speak", stringContent);
             cli.Wait();
             if (cli.Result.IsSuccessStatusCode)
@@ -306,6 +306,9 @@ public static class Program
 
             var p = new ProcessStartInfo($"{EDFP}/ffmpeg.exe");
             p.Arguments = $"-i \"{wavname}\" -ac 1 \"{mp3name}\"";
+            p.RedirectStandardError = true;
+            p.RedirectStandardInput = true;
+            p.RedirectStandardOutput = true;
             var d = Process.Start(p);
             d!.WaitForExit();
             LineData ret = new()
