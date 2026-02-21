@@ -182,17 +182,24 @@ public static class Program
         rem.ForEach(x => lines.Remove(x));
         Console.WriteLine($"Removed {rem.Count} objects with no variants");
         Console.WriteLine($"Writing {lines.Sum(x => x.Value.forms.Count)} json items for VPC-SKSE for {lines.Sum(x => x.Value.variants.Count)} variants");
+
+        var voice_directory = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice");
+        var voice_sound = Path.Join(voice_directory, "Voice");
+        var voice_data = Path.Join(voice_directory, "Data");
+        Directory.CreateDirectory(voice_sound);
+        Directory.CreateDirectory(voice_data);
+
         var files = lines.SelectMany(x => x.Value.forms).Select(x => x.ModKey.ToString()).Distinct().ToHashSet();
-        Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data"));
         foreach (var fil in files)
         {
-            Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data", fil));
+            Directory.CreateDirectory(Path.Join(voice_data, fil));
         }
-        Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Voice"));
+
         var variants = lines.SelectMany(x => x.Value.variants).ToHashSet();
+        Console.WriteLine($"Copying {variants.Count} fuz files");
         foreach (var vd in variants)
         {
-            var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Voice", $"{vd.guid}.fuz");
+            var fp = Path.Join(voice_sound, $"{vd.guid}.fuz");
             var ep = Path.Join(state.ExtraSettingsDataPath, "VGOutput", "fuz", $"{vd.guid}.fuz");
             if (!File.Exists(fp) && File.Exists(ep))
             {
@@ -200,11 +207,12 @@ public static class Program
                 File.Copy(ep, fp, true);
             }
         }
+        Console.WriteLine($"Writing {lines.Sum(x => x.Value.forms.Count)} json files");
         foreach (var line in lines)
         {
             foreach (var id in line.Value.forms)
             {
-                var jso = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data", id.ModKey.ToString(), $"{id.IDString()}.json");
+                var jso = Path.Join(voice_data, id.ModKey.ToString(), $"{id.IDString()}.json");
                 if (line.Value.variants.Count > 0)
                 {
                     Console.WriteLine($"Writing {jso}");
