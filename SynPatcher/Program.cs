@@ -164,39 +164,24 @@ public static class Program
         Directory.CreateDirectory($"{EDFP}/VGOutput/lip/");
         Directory.CreateDirectory($"{EDFP}/VGOutput/xwm/");
         Directory.CreateDirectory($"{EDFP}/VGOutput/fuz/");
-        //client.DefaultRequestHeaders.Add("xi-api-key", APIInfo.key);
         client.BaseAddress = new Uri($"http://localhost:8000");
-        client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
-        var threads = new HashSet<Thread>();
-        SemaphoreSlim _sem = new(4);
         foreach (var (Name, FormKey) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey)))
         {
             if (Name.IsNullOrEmpty()) continue;
-            _sem.Wait();
-            var t = new Thread(() =>
+            try
             {
-                try
-                {
 
-                    var ln = ProcLine(Name, FormKey);
-                    if (ln != null && !lines.ContainsKey(Name) && ln.variants.Count > 0)
-                    {
-                        lines[Name] = ln;
-                    }
-                }
-                catch (Exception ex)
+                var ln = ProcLine(Name, FormKey);
+                if (ln != null && !lines.ContainsKey(Name) && ln.variants.Count > 0)
                 {
-                    Log($"{ex.Message}", LogMode.NORMAL);
+                    lines[Name] = ln;
                 }
-                finally
-                {
-                    _sem.Release();
-                }
-            });
-            t.Start();
-            threads.Add(t);
+            }
+            catch (Exception ex)
+            {
+                Log($"{ex.Message}", LogMode.NORMAL);
+            }
         }
-        threads.ForEach(x => x.Join());
         var files = lines.SelectMany(x => x.Value.forms).Select(x => x.ModKey.ToString()).Distinct().ToHashSet();
         Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data"));
         foreach (var fil in files)
