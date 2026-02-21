@@ -6,7 +6,6 @@ public enum LogMode
 }
 public class ElevenLabs
 {
-    public string model_id = "eleven_flash_v2_5";
     public string lang = "en";
     public bool dry_run = true;
     public LogMode log_mode = LogMode.NORMAL;
