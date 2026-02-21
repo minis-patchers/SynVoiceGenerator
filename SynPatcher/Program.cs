@@ -58,15 +58,15 @@ public static class Program
             using var fileStream = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
             var resp = await dlclient.GetStreamAsync(fileUrl);
             await resp.CopyToAsync(fileStream);
-            Console.WriteLine($"Downloaded: {destinationPath}");
+            Log($"Downloaded: {destinationPath}", LogMode.NORMAL);
         }
         catch (HttpRequestException ex)
         {
-            Console.WriteLine($"HTTP error: {ex.Message}");
+            Log($"HTTP error: {ex.Message}", LogMode.NORMAL);
         }
         catch (IOException ex)
         {
-            Console.WriteLine($"File I/O error: {ex.Message}");
+            Log($"File I/O error: {ex.Message}", LogMode.NORMAL);
         }
     }
     static Dictionary<string, LineTracker> lines = [];
@@ -117,7 +117,7 @@ public static class Program
             foreach (var dir in Directory.EnumerateDirectories(vp))
             {
                 var fn = new DirectoryInfo(dir).Name;
-                Console.WriteLine($"Loading files for {fn}");
+                Log($"Loading files for {fn}", LogMode.NORMAL);
                 if (!state.LoadOrder.ModExists(fn)) continue;
                 foreach (var file in Directory.EnumerateFiles(dir))
                 {
@@ -129,16 +129,16 @@ public static class Program
                         {
                             var n = CleanString($"{vt.Name}");
                             if (n.IsNullOrEmpty()) continue;
-                            Console.WriteLine($"Loading entry for {fk}: {CleanString($"{vt.Name}")}");
+                            Log($"Loading entry for {fk}: {CleanString($"{vt.Name}")}", LogMode.DEBUG);
                             if (lines.ContainsKey(n))
                             {
                                 var lin = lines[n];
                                 var varint = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
-                                Console.WriteLine($"Merging {lin.forms.First()} with {lin.variants.Count} variants with {fk} containing text {CleanString($"{vt.Name}")} and {varint.Count} variants");
+                                Log($"Merging {lin.forms.First()} with {lin.variants.Count} variants with {fk} containing text {CleanString($"{vt.Name}")} and {varint.Count} variants", LogMode.DEBUG);
                                 lin.forms.Add(fk);
                                 lin.variants.Add(varint);
                                 lin.variants = lin.variants.DistinctBy(x => x.guid).ToHashSet();
-                                Console.WriteLine($"Final Variant Count {lin.variants.Count}");
+                                Log($"Final Variant Count {lin.variants.Count}", LogMode.DEBUG);
                             }
                             else
                             {
@@ -165,7 +165,7 @@ public static class Program
         var gens = state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{CleanString($"{x.Name}")}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey));
         var totalCount = gens.DistinctBy(x => x.Item1).Count();
         var genc = lines.Count;
-        Console.WriteLine($"{totalCount} potential dialogue lines found and {lines.Count} are currently generated, generating {totalCount - lines.Count} lines of dialogue. This could take a while.");
+        Log($"{totalCount} potential dialogue lines found and {lines.Count} are currently generated, generating {totalCount - lines.Count} lines of dialogue. This could take a while.", LogMode.NORMAL);
         foreach (var (Name, FormKey) in gens)
         {
             if (Name.IsNullOrEmpty()) continue;
@@ -178,7 +178,7 @@ public static class Program
                 ProcLine(Name, FormKey);
                 if (genc % 1000 == 0)
                 {
-                    Console.WriteLine($"Generation Progress {genc}/{totalCount} (Estimated)");
+                    Log($"Generation Progress {genc}/{totalCount} (Estimated)", LogMode.NORMAL);
                 }
             }
             catch (Exception ex)
@@ -189,8 +189,8 @@ public static class Program
         }
         var rem = lines.Where(x => x.Value.variants.Count == 0).Select(x => x.Key).ToHashSet();
         rem.ForEach(x => lines.Remove(x));
-        Console.WriteLine($"Removed {rem.Count} objects with no variants");
-        Console.WriteLine($"Writing {lines.Sum(x => x.Value.forms.Count)} json items for VPC-SKSE for {lines.Sum(x => x.Value.variants.Count)} variants");
+        Log($"Removed {rem.Count} objects with no variants", LogMode.NORMAL);
+        Log($"Writing {lines.Sum(x => x.Value.forms.Count)} json items for VPC-SKSE for {lines.Sum(x => x.Value.variants.Count)} variants", LogMode.NORMAL);
 
         var voice_directory = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice");
         var voice_sound = Path.Join(voice_directory, "Voice");
@@ -205,18 +205,18 @@ public static class Program
         }
 
         var variants = lines.SelectMany(x => x.Value.variants).ToHashSet();
-        Console.WriteLine($"Copying {variants.Count} fuz files");
+        Log($"Copying {variants.Count} fuz files", LogMode.NORMAL);
         foreach (var vd in variants)
         {
             var fp = Path.Join(voice_sound, $"{vd.guid}.fuz");
             var ep = Path.Join(state.ExtraSettingsDataPath, "VGOutput", "fuz", $"{vd.guid}.fuz");
             if (!File.Exists(fp) && File.Exists(ep))
             {
-                Console.WriteLine($"Copying {vd.guid} to Game Path");
+                Log($"Copying {vd.guid} to Game Path", LogMode.DEBUG);
                 File.Copy(ep, fp, true);
             }
         }
-        Console.WriteLine($"Writing {lines.Sum(x => x.Value.forms.Count)} json files");
+        Log($"Writing {lines.Sum(x => x.Value.forms.Count)} json files", LogMode.NORMAL);
         foreach (var line in lines)
         {
             foreach (var id in line.Value.forms)
@@ -224,7 +224,7 @@ public static class Program
                 var jso = Path.Join(voice_data, id.ModKey.ToString(), $"{id.IDString()}.json");
                 if (line.Value.variants.Count > 0)
                 {
-                    Console.WriteLine($"Writing {jso}");
+                    Log($"Writing {jso}", LogMode.DEBUG);
                     File.WriteAllText(jso, JsonConvert.SerializeObject(line.Value.variants, settings));
                 }
                 else
@@ -307,7 +307,7 @@ public static class Program
         var guid = Guid.NewGuid().ToString().ToUpper();
         while (lines.Any(x => x.Value.variants.Any(x => x.guid == $"{guid}")) || File.Exists(Path.Join(EDFP, "VGOutput", "fuz", $"{guid}.fuz")))
         {
-            Console.WriteLine("Regenerating identical guid");
+            Log("Regenerating identical guid", LogMode.DEBUG);
             guid = Guid.NewGuid().ToString().ToUpper();
         }
         var mp3name = Path.GetFullPath($"{EDFP}/VGOutput/mp3/{guid}.mp3");
