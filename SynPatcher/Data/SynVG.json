@@ -1,9 +1,0 @@
-{
-  "voice": "Glinda",
-  "lang": "en",
-  "log_mode": "NORMAL",
-  "replacementLists": {
-    "Alias=Player": [],
-    "Alias=CurrentRelic": ["Silver Arrow", "Leviathan Diamond"]
-  }
-}

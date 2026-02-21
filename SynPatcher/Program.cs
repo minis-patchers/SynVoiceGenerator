@@ -176,7 +176,7 @@ public static class Program
                     genc++;
                 }
                 ProcLine(Name, FormKey);
-                if (genc % 1000 == 0)
+                if (genc % APIInfo.print_every_gen == 0)
                 {
                     Log($"Generation Progress {genc}/{totalCount} (Estimated)", LogMode.NORMAL);
                 }
