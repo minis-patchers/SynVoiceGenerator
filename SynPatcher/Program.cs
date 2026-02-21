@@ -6,6 +6,7 @@ using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Synthesis;
 using Newtonsoft.Json;
 using Noggog;
+using System.Collections.Concurrent;
 using System.Data;
 using System.Diagnostics;
 using System.IO.Compression;
@@ -70,7 +71,7 @@ public static class Program
             Console.WriteLine($"File I/O error: {ex.Message}");
         }
     }
-    static HashSet<LineTracker> lines = [];
+    static ConcurrentDictionary<string, LineTracker> lines = [];
     static Lazy<APIConfig> api = new();
     public static APIConfig APIInfo => api.Value;
     static readonly HttpClient client = new();
@@ -128,17 +129,18 @@ public static class Program
                         var fk = FormKey.Factory($"{form}:{fn}");
                         if (state.LinkCache.TryResolve<IDialogTopicGetter>(fk, out var vt))
                         {
-                            if (CleanString($"{vt.Name}").IsNullOrEmpty()) continue;
+                            var n = CleanString($"{vt.Name}");
+                            if (n.IsNullOrEmpty()) continue;
                             Console.WriteLine($"Loading entry for {fk}: {CleanString($"{vt.Name}")}");
-                            var lin = lines.Where(x => x.forms.Where(y => state.LinkCache.TryResolve<IDialogTopicGetter>(y, out var dl) && CleanString($"{dl.Name}") == CleanString($"{vt.Name}")).Any());
-                            if (lin.Any())
+                            if (lines.ContainsKey(n))
                             {
+                                var lin = lines[n];
                                 var varint = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
-                                Console.WriteLine($"Merging {lin.First().forms.First()} with {lin.First().variants.Count} variants with {fk} containing text {CleanString($"{vt.Name}")} and {varint.Count} variants");
-                                lin.First().forms.Add(fk);
-                                lin.First().variants.Add(varint);
-                                lin.First().variants = lin.First().variants.DistinctBy(x => x.guid).ToHashSet();
-                                Console.WriteLine($"Final Variant Count {lin.First().variants.Count}");
+                                Console.WriteLine($"Merging {lin.forms.First()} with {lin.variants.Count} variants with {fk} containing text {CleanString($"{vt.Name}")} and {varint.Count} variants");
+                                lin.forms.Add(fk);
+                                lin.variants.Add(varint);
+                                lin.variants = lin.variants.DistinctBy(x => x.guid).ToHashSet();
+                                Console.WriteLine($"Final Variant Count {lin.variants.Count}");
                             }
                             else
                             {
@@ -147,7 +149,7 @@ public static class Program
                                 lt.variants = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
                                 if (lt.variants.Count > 0)
                                 {
-                                    lines.Add(lt);
+                                    lines[n] = lt;
                                 }
                             }
                         }
@@ -164,27 +166,36 @@ public static class Program
         Directory.CreateDirectory($"{EDFP}/VGOutput/fuz/");
         //client.DefaultRequestHeaders.Add("xi-api-key", APIInfo.key);
         client.BaseAddress = new Uri($"http://localhost:8000");
+        var list = new HashSet<Thread>();
         foreach (var (Name, FormKey) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey)))
         {
-            try
+            SemaphoreSlim _sem = new SemaphoreSlim(4);
+            var t = new Thread(() =>
             {
-                var ln = ProcLine(Name, FormKey, state.LinkCache);
-                if (ln != null && !lines.Contains(ln))
+                _sem.Wait();
+                try
                 {
-                    lines.Add(ln);
+
+                    var ln = ProcLine(Name, FormKey, state.LinkCache);
+                    if (ln != null && !lines.ContainsKey(Name) && ln.variants.Count > 0)
+                    {
+                        lines[Name] = ln;
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                Log($"{ex.Message}", LogMode.NORMAL);
-            }
+                catch (Exception ex)
+                {
+                    Log($"{ex.Message}", LogMode.NORMAL);
+                }
+                finally
+                {
+                    _sem.Release();
+                }
+            });
+            t.Start();
+            list.Add(t);
         }
-        {
-            var remc = lines.Where(x => x.variants.Count == 0).Count();
-            Log($"Removing {remc} Lines with no variants.", LogMode.NORMAL);
-            lines.RemoveWhere(x => x.variants.Count == 0);
-        }
-        var files = lines.SelectMany(x => x.forms).Select(x => x.ModKey.ToString()).Distinct().ToHashSet();
+        list.ForEach(x => x.Join());
+        var files = lines.SelectMany(x => x.Value.forms).Select(x => x.ModKey.ToString()).Distinct().ToHashSet();
         Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data"));
         foreach (var fil in files)
         {
@@ -193,11 +204,11 @@ public static class Program
         Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Voice"));
         foreach (var line in lines)
         {
-            foreach (var id in line.forms)
+            foreach (var id in line.Value.forms)
             {
                 var jso = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data", id.ModKey.ToString(), $"{id.IDString()}.json");
-                File.WriteAllText(jso, JsonConvert.SerializeObject(line.variants, settings));
-                foreach (var vd in line.variants)
+                File.WriteAllText(jso, JsonConvert.SerializeObject(line.Value.variants, settings));
+                foreach (var vd in line.Value.variants)
                 {
                     var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Voice", $"{vd.guid}.fuz");
                     var ep = Path.Join(state.ExtraSettingsDataPath, "VGOutput", "fuz", $"{vd.guid}.fuz");
@@ -213,7 +224,7 @@ public static class Program
     static LineTracker? ProcLine(string Name, FormKey FormKey, ILinkCache<ISkyrimMod, ISkyrimModGetter> lc)
     {
         if (Name.IsNullOrEmpty()) return null;
-        var line = lines.Where(x => x.forms.Contains(FormKey) || CleanString($"{lc.Resolve<IDialogTopicGetter>(x.forms.First()).Name}") == Name).FirstOrDefault(new LineTracker
+        var line = lines.GetOrAdd(Name, () => new()
         {
             forms = [FormKey],
             variants = [],
@@ -236,10 +247,6 @@ public static class Program
                     splen = dat.Value.splen,
                     reg_frags = null,
                 });
-                if (!lines.Contains(line))
-                {
-                    return line;
-                }
             }
         }
         //One of many different possible type variant data.
@@ -266,13 +273,9 @@ public static class Program
                         }
                     }
                 }
-                if (line.variants.Count != vc)
-                {
-                    return line;
-                }
             }
         }
-        return null;
+        return line;
     }
 
     static void Log(string lt, LogMode md)
@@ -285,7 +288,7 @@ public static class Program
     static LineData? Generate(string text)
     {
         var guid = Guid.NewGuid().ToString().ToUpper();
-        while (lines.Any(x => x.variants.Any(x => x.guid == $"{guid}")) || File.Exists(Path.Join(EDFP, "VGOutput", "fuz", $"{guid}.fuz")))
+        while (lines.Any(x => x.Value.variants.Any(x => x.guid == $"{guid}")) || File.Exists(Path.Join(EDFP, "VGOutput", "fuz", $"{guid}.fuz")))
         {
             Console.WriteLine("Regenerating identical guid");
             guid = Guid.NewGuid().ToString().ToUpper();
