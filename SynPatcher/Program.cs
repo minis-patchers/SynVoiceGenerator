@@ -181,7 +181,7 @@ public static class Program
         var rem = lines.Where(x => x.Value.variants.Count == 0).Select(x => x.Key).ToHashSet();
         rem.ForEach(x => lines.Remove(x));
         Console.WriteLine($"Removed {rem.Count} objects with no variants");
-        Console.WriteLine($"Writing {lines.Count} items for VPC-SKSE");
+        Console.WriteLine($"Writing {lines.Sum(x => x.Value.forms.Count)} json items for VPC-SKSE for {lines.Sum(x => x.Value.variants.Count)} variants");
         var files = lines.SelectMany(x => x.Value.forms).Select(x => x.ModKey.ToString()).Distinct().ToHashSet();
         Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data"));
         foreach (var fil in files)
