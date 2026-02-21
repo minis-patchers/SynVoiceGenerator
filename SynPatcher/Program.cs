@@ -164,7 +164,7 @@ public static class Program
         client.BaseAddress = new Uri($"http://localhost:8000");
         var gens = state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{CleanString($"{x.Name}")}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey));
         var totalCount = gens.DistinctBy(x => x.Item1).Count();
-        Console.WriteLine($"{totalCount} potential dialogue lines found {lines.Count} currently generated, generating {totalCount - lines.Count} lines of dialogue. This could take a while.");
+        Console.WriteLine($"{totalCount} potential dialogue lines found and {lines.Count} are currently generated, generating {totalCount - lines.Count} lines of dialogue. This could take a while.");
         foreach (var (Name, FormKey) in gens)
         {
             if (Name.IsNullOrEmpty()) continue;
