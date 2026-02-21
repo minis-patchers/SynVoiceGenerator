@@ -71,7 +71,7 @@ public static class Program
             Console.WriteLine($"File I/O error: {ex.Message}");
         }
     }
-    static ConcurrentDictionary<string, LineTracker> lines = [];
+    static Dictionary<string, LineTracker> lines = [];
     static Lazy<APIConfig> api = new();
     public static APIConfig APIInfo => api.Value;
     static readonly HttpClient client = new();
