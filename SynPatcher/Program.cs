@@ -128,11 +128,12 @@ public static class Program
                         Console.WriteLine($"Loading entry for {fk}");
                         if (state.LinkCache.TryResolve<IDialogTopicGetter>(fk, out var vt))
                         {
+                            if (CleanString($"{vt.Name}").IsNullOrEmpty()) continue;
                             var lin = lines.Where(x => x.forms.Where(y => state.LinkCache.TryResolve<IDialogTopicGetter>(y, out var dl) && CleanString($"{dl.Name}") == CleanString($"{vt.Name}")).Any());
                             if (lin.Any())
                             {
                                 var varint = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
-                                Console.WriteLine($"Merging {lin.First().forms.First()} with {lin.First().variants.Count} variants with {fk} containing text {vt.Name} and {varint.Count}");
+                                Console.WriteLine($"Merging {lin.First().forms.First()} with {lin.First().variants.Count} variants with {fk} containing text {CleanString($"{vt.Name}")} and {varint.Count} variants");
                                 lin.First().forms.Add(fk);
                                 lin.First().variants.Add(varint);
                                 lin.First().variants = lin.First().variants.DistinctBy(x => x.guid).ToHashSet();
