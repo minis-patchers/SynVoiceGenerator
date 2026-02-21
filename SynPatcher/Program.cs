@@ -125,10 +125,10 @@ public static class Program
                     {
                         var form = Path.GetFileNameWithoutExtension(file);
                         var fk = FormKey.Factory($"{form}:{fn}");
-                        Console.WriteLine($"Loading entry for {fk}");
                         if (state.LinkCache.TryResolve<IDialogTopicGetter>(fk, out var vt))
                         {
                             if (CleanString($"{vt.Name}").IsNullOrEmpty()) continue;
+                            Console.WriteLine($"Loading entry for {fk}: {CleanString($"{vt.Name}")}");
                             var lin = lines.Where(x => x.forms.Where(y => state.LinkCache.TryResolve<IDialogTopicGetter>(y, out var dl) && CleanString($"{dl.Name}") == CleanString($"{vt.Name}")).Any());
                             if (lin.Any())
                             {
@@ -198,7 +198,7 @@ public static class Program
             //One of many different possible type variant data.
             else
             {
-                if (Name.Trim() != "...")
+                if (Name != "...")
                 {
                     var cont = APIInfo.replacementLists.Where(x => Name.Contains($"<{x.Key}>")).ToDictionary();
                     foreach (var (vd, tline) in cont.GenerateTemplatedCartesianProduct(Name))
