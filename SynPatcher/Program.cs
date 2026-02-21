@@ -323,18 +323,11 @@ public static class Program
         }
         if (!File.Exists(fuzname) && File.Exists(wavname))
         {
-            if (!File.Exists(mp3name))
-            {
-                var mpeg = Process.Start($"{EDFP}/ffmpeg.exe", $"-i \"{wavname}\" -ac 1 \"{mp3name}\"");
-                mpeg.WaitForExit();
-                if (mpeg.ExitCode != 0) return null;
-            }
-            LineData ret = new()
-            {
-                splen = Exts.GetMp3Duration(mp3name),
-                guid = guid,
-            };
-            var p = Process.Start($"{EDFP}/FaceFXWrapper.exe", $"Skyrim USEnglish FonixData.cdf \"{wavname}\" \"{rwavnam}\" \"{lipname}\" \"{text.Replace("\"", "\\\"")}\"");
+            Process p;
+            p = Process.Start($"{EDFP}/ffmpeg.exe", $"-i \"{wavname}\" -ac 1 \"{mp3name}\"");
+            p.WaitForExit();
+            if (p.ExitCode != 0) return null;
+            p = Process.Start($"{EDFP}/FaceFXWrapper.exe", $"Skyrim USEnglish FonixData.cdf \"{wavname}\" \"{rwavnam}\" \"{lipname}\" \"{text.Replace("\"", "\\\"")}\"");
             p.WaitForExit();
             if (p.ExitCode != 0) return null;
             p = Process.Start($"{EDFP}/xWMAEncode.exe", $"\"{wavname}\" \"{xwmname}\"");
@@ -344,7 +337,11 @@ public static class Program
             p.WaitForExit();
             if (p.ExitCode != 0) return null;
             Log($"Generated {text}", LogMode.NORMAL);
-            return ret;
+            return new()
+            {
+                splen = Exts.GetMp3Duration(mp3name),
+                guid = guid,
+            };
         }
         else
         {
