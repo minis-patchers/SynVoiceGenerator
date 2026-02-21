@@ -155,7 +155,6 @@ public static class Program
                 }
             }
         }
-        Console.WriteLine($"Read {lines.Count} objects");
         Directory.CreateDirectory($"{EDFP}/VGOutput/mp3/");
         Directory.CreateDirectory($"{EDFP}/VGOutput/wav/");
         Directory.CreateDirectory($"{EDFP}/VGOutput/wav/");
@@ -163,7 +162,10 @@ public static class Program
         Directory.CreateDirectory($"{EDFP}/VGOutput/xwm/");
         Directory.CreateDirectory($"{EDFP}/VGOutput/fuz/");
         client.BaseAddress = new Uri($"http://localhost:8000");
-        foreach (var (Name, FormKey) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey)))
+        var gens = state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{CleanString($"{x.Name}")}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey));
+        var totalCount = gens.DistinctBy(x => x.Item1).Count();
+        Console.WriteLine($"{totalCount} potential dialogue lines found {lines.Count} currently generated, generating {totalCount - lines.Count} lines of dialogue. This could take a while.");
+        foreach (var (Name, FormKey) in gens)
         {
             if (Name.IsNullOrEmpty()) continue;
             try
