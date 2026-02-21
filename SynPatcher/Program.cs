@@ -253,7 +253,7 @@ public static class Program
             return;
         }
         //Basic Text Line
-        if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && Name.Trim() != "..." && !Name.StartsWith('$'))
+        if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && Name != "..." && !Name.StartsWith('$'))
         {
             var dat = Generate(Name);
             if (dat != null)
