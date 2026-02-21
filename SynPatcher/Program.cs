@@ -177,7 +177,7 @@ public static class Program
                 try
                 {
 
-                    var ln = ProcLine(Name, FormKey, state.LinkCache);
+                    var ln = ProcLine(Name, FormKey);
                     if (ln != null && !lines.ContainsKey(Name) && ln.variants.Count > 0)
                     {
                         lines[Name] = ln;
@@ -222,7 +222,7 @@ public static class Program
             }
         }
     }
-    static LineTracker? ProcLine(string Name, FormKey FormKey, ILinkCache<ISkyrimMod, ISkyrimModGetter> lc)
+    static LineTracker? ProcLine(string Name, FormKey FormKey)
     {
         if (Name.IsNullOrEmpty()) return null;
         var line = lines.GetOrAdd(Name, () => new()
