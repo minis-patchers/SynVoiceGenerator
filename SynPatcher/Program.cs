@@ -168,12 +168,7 @@ public static class Program
             if (Name.IsNullOrEmpty()) continue;
             try
             {
-
-                var ln = ProcLine(Name, FormKey);
-                if (ln != null && !lines.ContainsKey(Name) && ln.variants.Count > 0)
-                {
-                    lines[Name] = ln;
-                }
+                ProcLine(Name, FormKey);
             }
             catch (Exception ex)
             {
@@ -192,21 +187,33 @@ public static class Program
             foreach (var id in line.Value.forms)
             {
                 var jso = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data", id.ModKey.ToString(), $"{id.IDString()}.json");
-                File.WriteAllText(jso, JsonConvert.SerializeObject(line.Value.variants, settings));
-                foreach (var vd in line.Value.variants)
+                if (line.Value.variants.Count > 0)
                 {
-                    var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Voice", $"{vd.guid}.fuz");
-                    var ep = Path.Join(state.ExtraSettingsDataPath, "VGOutput", "fuz", $"{vd.guid}.fuz");
-                    if (!File.Exists(fp) && File.Exists(ep))
+                    File.WriteAllText(jso, JsonConvert.SerializeObject(line.Value.variants, settings));
+                    foreach (var vd in line.Value.variants)
                     {
-                        Console.WriteLine($"Copying {vd.guid} to Game Path");
-                        File.Copy(ep, fp, true);
+                        var fp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Voice", $"{vd.guid}.fuz");
+                        var ep = Path.Join(state.ExtraSettingsDataPath, "VGOutput", "fuz", $"{vd.guid}.fuz");
+                        if (!File.Exists(fp) && File.Exists(ep))
+                        {
+                            Console.WriteLine($"Copying {vd.guid} to Game Path");
+                            File.Copy(ep, fp, true);
+                        }
                     }
+                }
+                else
+                {
+                    try
+                    {
+                        File.Delete(jso);
+                    }
+                    catch
+                    { }
                 }
             }
         }
     }
-    static LineTracker? ProcLine(string Name, FormKey FormKey)
+    static void ProcLine(string Name, FormKey FormKey)
     {
         var line = lines.GetOrAdd(Name, () => new()
         {
@@ -217,7 +224,7 @@ public static class Program
         {
             line.forms.Add(FormKey);
             Log($"Skipping {Name}", LogMode.NORMAL);
-            return null;
+            return;
         }
         //Basic Text Line
         if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && Name.Trim() != "..." && !Name.StartsWith('$'))
@@ -259,7 +266,7 @@ public static class Program
                 }
             }
         }
-        return line;
+        return;
     }
 
     static void Log(string lt, LogMode md)
