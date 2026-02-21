@@ -167,13 +167,14 @@ public static class Program
         //client.DefaultRequestHeaders.Add("xi-api-key", APIInfo.key);
         client.BaseAddress = new Uri($"http://localhost:8000");
         client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
-        var list = new HashSet<Thread>();
-        SemaphoreSlim _sem = new SemaphoreSlim(4);
+        var threads = new HashSet<Thread>();
+        SemaphoreSlim _sem = new(4);
         foreach (var (Name, FormKey) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey)))
         {
+            if (Name.IsNullOrEmpty()) continue;
+            _sem.Wait();
             var t = new Thread(() =>
             {
-                _sem.Wait();
                 try
                 {
 
@@ -193,9 +194,9 @@ public static class Program
                 }
             });
             t.Start();
-            list.Add(t);
+            threads.Add(t);
         }
-        list.ForEach(x => x.Join());
+        threads.ForEach(x => x.Join());
         var files = lines.SelectMany(x => x.Value.forms).Select(x => x.ModKey.ToString()).Distinct().ToHashSet();
         Directory.CreateDirectory(Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data"));
         foreach (var fil in files)
@@ -224,7 +225,6 @@ public static class Program
     }
     static LineTracker? ProcLine(string Name, FormKey FormKey)
     {
-        if (Name.IsNullOrEmpty()) return null;
         var line = lines.GetOrAdd(Name, () => new()
         {
             forms = [FormKey],
