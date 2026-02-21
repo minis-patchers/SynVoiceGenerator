@@ -168,7 +168,6 @@ public static class Program
         Log($"{totalCount} potential dialogue lines found and {lines.Count} are currently generated, generating {totalCount - lines.Count} lines of dialogue. This could take a while.", LogMode.NORMAL);
         foreach (var (Name, FormKey) in gens)
         {
-            if (Name.IsNullOrEmpty()) continue;
             try
             {
                 if (!lines.ContainsKey(Name))
@@ -183,6 +182,7 @@ public static class Program
             }
             catch (Exception ex)
             {
+                Log($"Generation Progress {genc}/{totalCount} (Estimated)", LogMode.NORMAL);
                 Log($"{ex.Message}", LogMode.NORMAL);
                 break;
             }
