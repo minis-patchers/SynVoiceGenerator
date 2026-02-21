@@ -175,6 +175,7 @@ public static class Program
             catch (Exception ex)
             {
                 Log($"{ex.Message}", LogMode.NORMAL);
+                break;
             }
         }
         var rem = lines.Where(x => x.Value.variants.Count == 0).Select(x => x.Key).ToHashSet();
