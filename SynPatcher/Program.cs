@@ -3,7 +3,6 @@ using Mutagen.Bethesda.Json;
 using Mutagen.Bethesda.Plugins;
 using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Synthesis;
-using System.Collections.Concurrent;
 using Newtonsoft.Json;
 using Noggog;
 using System.Data;
@@ -71,7 +70,6 @@ public static class Program
         }
     }
     static HashSet<LineTracker> lines = [];
-    static object lck = new();
     static Lazy<ElevenLabs> api = new();
     public static ElevenLabs APIInfo => api.Value;
     static readonly HttpClient client = new();
@@ -165,9 +163,11 @@ public static class Program
         Directory.CreateDirectory($"{EDFP}/VGOutput/fuz/");
         //client.DefaultRequestHeaders.Add("xi-api-key", APIInfo.key);
         client.BaseAddress = new Uri($"http://localhost:8000");
-        state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey)).AsParallel().ForEach((string Name, FormKey FormKey) =>
+        state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey)).AsParallel().ForEach(data =>
         {
-            if (Name.IsNullOrEmpty()) continue;
+            var Name = data.Item1;
+            var FormKey = data.FormKey;
+            if (Name.IsNullOrEmpty()) return;
             var line = lines.Where(x => x.forms.Contains(FormKey) || CleanString($"{state.LinkCache.Resolve<IDialogTopicGetter>(x.forms.First()).Name}") == Name).FirstOrDefault(new LineTracker
             {
                 forms = [FormKey],
@@ -177,7 +177,7 @@ public static class Program
             {
                 line.forms.Add(FormKey);
                 Log($"Skipping {Name}", LogMode.NORMAL);
-                continue;
+                return;
             }
             //Basic Text Line
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && Name.Trim() != "..." && !Name.StartsWith('$'))
@@ -193,7 +193,6 @@ public static class Program
                     });
                     if (!lines.Contains(line))
                     {
-                        lock (lck) ;
                         lines.Add(line);
                     }
                 }
@@ -220,7 +219,6 @@ public static class Program
                                 });
                                 if (!lines.Contains(line))
                                 {
-                                    lock (lck) ;
                                     lines.Add(line);
                                 }
                             }
