@@ -163,11 +163,9 @@ public static class Program
         Directory.CreateDirectory($"{EDFP}/VGOutput/fuz/");
         //client.DefaultRequestHeaders.Add("xi-api-key", APIInfo.key);
         client.BaseAddress = new Uri($"http://localhost:8000");
-        state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey)).AsParallel().ForAll(data =>
+        foreach (var (Name, FormKey) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey)))
         {
-            var Name = data.Item1;
-            var FormKey = data.FormKey;
-            if (Name.IsNullOrEmpty()) return;
+            if (Name.IsNullOrEmpty()) continue;
             var line = lines.Where(x => x.forms.Contains(FormKey) || CleanString($"{state.LinkCache.Resolve<IDialogTopicGetter>(x.forms.First()).Name}") == Name).FirstOrDefault(new LineTracker
             {
                 forms = [FormKey],
@@ -177,7 +175,7 @@ public static class Program
             {
                 line.forms.Add(FormKey);
                 Log($"Skipping {Name}", LogMode.NORMAL);
-                return;
+                continue;
             }
             //Basic Text Line
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && Name.Trim() != "..." && !Name.StartsWith('$'))
@@ -226,7 +224,7 @@ public static class Program
                     }
                 }
             }
-        });
+        }
         {
             var remc = lines.Where(x => x.variants.Count == 0).Count();
             Log($"Removing {remc} Lines with no variants.", LogMode.NORMAL);
