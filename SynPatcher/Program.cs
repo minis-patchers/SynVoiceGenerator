@@ -323,25 +323,17 @@ public static class Program
         }
         if (!File.Exists(fuzname) && File.Exists(wavname))
         {
-            Process p;
-            p = Process.Start($"{EDFP}/ffmpeg.exe", $"-i \"{wavname}\" -ac 1 \"{mp3name}\"");
-            p.WaitForExit();
-            if (p.ExitCode != 0) return null;
-            p = Process.Start($"{EDFP}/FaceFXWrapper.exe", $"Skyrim USEnglish FonixData.cdf \"{wavname}\" \"{rwavnam}\" \"{lipname}\" \"{text.Replace("\"", "\\\"")}\"");
-            p.WaitForExit();
-            if (p.ExitCode != 0) return null;
-            p = Process.Start($"{EDFP}/xWMAEncode.exe", $"\"{wavname}\" \"{xwmname}\"");
-            p.WaitForExit();
-            if (p.ExitCode != 0) return null;
-            p = Process.Start($"{EDFP}/BmlFuzEncode.exe", $"\"{fuzname}\" \"{xwmname}\" \"{lipname}\"");
-            p.WaitForExit();
-            if (p.ExitCode != 0) return null;
-            Log($"Generated {text}", LogMode.NORMAL);
-            return new()
+            Process.Start($"{EDFP}/ffmpeg.exe", $"-i \"{wavname}\" -ac 1 \"{mp3name}\"").WaitForExit();
+            LineData ret = new()
             {
-                splen = Exts.GetMp3Duration(mp3name),
                 guid = guid,
+                splen = Exts.GetMp3Duration(mp3name),
             };
+            Process.Start($"{EDFP}/FaceFXWrapper.exe", $"Skyrim USEnglish FonixData.cdf \"{wavname}\" \"{rwavnam}\" \"{lipname}\" \"{text.Replace("\"", "\\\"")}\"").WaitForExit();
+            Process.Start($"{EDFP}/xWMAEncode.exe", $"\"{wavname}\" \"{xwmname}\"").WaitForExit();
+            Process.Start($"{EDFP}/BmlFuzEncode.exe", $"\"{fuzname}\" \"{xwmname}\" \"{lipname}\"").WaitForExit();
+            Log($"Generated {text}", LogMode.NORMAL);
+            return ret;
         }
         else
         {
