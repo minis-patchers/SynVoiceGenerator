@@ -328,7 +328,6 @@ public static class Program
             p.Arguments = $"-i \"{wavname}\" -ac 1 \"{mp3name}\"";
             var d = Process.Start(p);
             d!.WaitForExit();
-            Console.WriteLine($"Exit code: {d.ExitCode}");
             LineData ret = new()
             {
                 guid = guid,
@@ -338,17 +337,14 @@ public static class Program
             p.Arguments = $"Skyrim USEnglish FonixData.cdf \"{wavname}\" \"{rwavnam}\" \"{lipname}\" \"{text.Replace("\"", "\\\"")}\"";
             d = Process.Start(p);
             d!.WaitForExit();
-            Console.WriteLine($"Exit code: {d.ExitCode}");
             p.FileName = $"{EDFP}/xWMAEncode.exe";
             p.Arguments = $"\"{wavname}\" \"{xwmname}\"";
             d = Process.Start(p);
             d!.WaitForExit();
-            Console.WriteLine($"Exit code: {d.ExitCode}");
             p.FileName = $"{EDFP}/BmlFuzEncode.exe";
             p.Arguments = $"\"{fuzname}\" \"{xwmname}\" \"{lipname}\"";
             d = Process.Start(p);
             d!.WaitForExit();
-            Console.WriteLine($"Exit code: {d.ExitCode}");
             Log($"Generated {text}", LogMode.NORMAL);
             return ret;
         }
