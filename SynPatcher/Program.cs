@@ -166,7 +166,7 @@ public static class Program
         Directory.CreateDirectory($"{EDFP}/VGOutput/fuz/");
         //client.DefaultRequestHeaders.Add("xi-api-key", APIInfo.key);
         client.BaseAddress = new Uri($"http://localhost:8000");
-        client.Timeout = TimeSpan.MaxValue;
+        client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
         var list = new HashSet<Thread>();
         SemaphoreSlim _sem = new SemaphoreSlim(4);
         foreach (var (Name, FormKey) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey)))
