@@ -1,4 +1,4 @@
-﻿using Mutagen.Bethesda;
+using Mutagen.Bethesda;
 using Mutagen.Bethesda.Json;
 using Mutagen.Bethesda.Plugins;
 using Mutagen.Bethesda.Skyrim;
@@ -111,10 +111,14 @@ public static class Program
         {
             File.Copy(Path.Join(CKTools, "LipGen", "LipGenerator", "FonixData.cdf"), "FonixData.cdf");
         }
-        var vp = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice", "Data");
-        if (Directory.Exists(vp))
+
+        var voice_directory = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice");
+        var voice_sound = Path.Join(voice_directory, "Voice");
+        var voice_data = Path.Join(voice_directory, "Data");
+
+        if (Directory.Exists(voice_data))
         {
-            foreach (var dir in Directory.EnumerateDirectories(vp))
+            foreach (var dir in Directory.EnumerateDirectories(voice_data))
             {
                 var fn = new DirectoryInfo(dir).Name;
                 Log($"Loading files for {fn}", LogMode.NORMAL);
@@ -191,10 +195,6 @@ public static class Program
         rem.ForEach(x => lines.Remove(x));
         Log($"Removed {rem.Count} objects with no variants", LogMode.NORMAL);
         Log($"Writing {lines.Sum(x => x.Value.forms.Count)} json items for VPC-SKSE for {lines.Sum(x => x.Value.variants.Count)} variants", LogMode.NORMAL);
-
-        var voice_directory = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice");
-        var voice_sound = Path.Join(voice_directory, "Voice");
-        var voice_data = Path.Join(voice_directory, "Data");
         Directory.CreateDirectory(voice_sound);
         Directory.CreateDirectory(voice_data);
 
