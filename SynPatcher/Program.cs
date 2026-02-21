@@ -166,7 +166,7 @@ public static class Program
         foreach (var (Name, FormKey) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey)))
         {
             if (Name.IsNullOrEmpty()) continue;
-            var line = lines.Where(x => x.forms.Contains(FormKey) || CleanString($"{state.LinkCache.Resolve<IDialogTopicGetter>(FormKey).Name}") == Name).FirstOrDefault(new LineTracker
+            var line = lines.Where(x => x.forms.Contains(FormKey) || CleanString($"{state.LinkCache.Resolve<IDialogTopicGetter>(x.forms.First()).Name}") == Name).FirstOrDefault(new LineTracker
             {
                 forms = [FormKey],
                 variants = [],
