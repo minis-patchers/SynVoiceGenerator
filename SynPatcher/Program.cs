@@ -167,9 +167,9 @@ public static class Program
         //client.DefaultRequestHeaders.Add("xi-api-key", APIInfo.key);
         client.BaseAddress = new Uri($"http://localhost:8000");
         var list = new HashSet<Thread>();
+        SemaphoreSlim _sem = new SemaphoreSlim(4);
         foreach (var (Name, FormKey) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey)))
         {
-            SemaphoreSlim _sem = new SemaphoreSlim(4);
             var t = new Thread(() =>
             {
                 _sem.Wait();
