@@ -171,7 +171,7 @@ public static class Program
                 forms = [FormKey],
                 variants = [],
             });
-            if (line.variants.Count > 0)
+            if (line.variants.Count > 0 && line.variants.All(x => x.reg_frags == null))
             {
                 line.forms.Add(FormKey);
                 Log($"Skipping {Name}", LogMode.NORMAL);
