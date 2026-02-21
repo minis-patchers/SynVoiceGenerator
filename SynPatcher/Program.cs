@@ -3,6 +3,7 @@ using Mutagen.Bethesda.Json;
 using Mutagen.Bethesda.Plugins;
 using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Synthesis;
+using System.Collections.Concurrent;
 using Newtonsoft.Json;
 using Noggog;
 using System.Data;
@@ -70,6 +71,7 @@ public static class Program
         }
     }
     static HashSet<LineTracker> lines = [];
+    static object lck = new();
     static Lazy<ElevenLabs> api = new();
     public static ElevenLabs APIInfo => api.Value;
     static readonly HttpClient client = new();
@@ -163,7 +165,7 @@ public static class Program
         Directory.CreateDirectory($"{EDFP}/VGOutput/fuz/");
         //client.DefaultRequestHeaders.Add("xi-api-key", APIInfo.key);
         client.BaseAddress = new Uri($"http://localhost:8000");
-        foreach (var (Name, FormKey) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey)))
+        state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{x.Name}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey)).AsParallel().ForEach((string Name, FormKey FormKey) =>
         {
             if (Name.IsNullOrEmpty()) continue;
             var line = lines.Where(x => x.forms.Contains(FormKey) || CleanString($"{state.LinkCache.Resolve<IDialogTopicGetter>(x.forms.First()).Name}") == Name).FirstOrDefault(new LineTracker
@@ -191,6 +193,7 @@ public static class Program
                     });
                     if (!lines.Contains(line))
                     {
+                        lock (lck) ;
                         lines.Add(line);
                     }
                 }
@@ -217,6 +220,7 @@ public static class Program
                                 });
                                 if (!lines.Contains(line))
                                 {
+                                    lock (lck) ;
                                     lines.Add(line);
                                 }
                             }
@@ -224,7 +228,7 @@ public static class Program
                     }
                 }
             }
-        }
+        });
         {
             var remc = lines.Where(x => x.variants.Count == 0).Count();
             Log($"Removing {remc} Lines with no variants.", LogMode.NORMAL);
