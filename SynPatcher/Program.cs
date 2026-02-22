@@ -176,17 +176,14 @@ public static class Program
         Directory.CreateDirectory(fuz);
         client.BaseAddress = new Uri(APIInfo.api_server);
         var gens = state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{CleanString($"{x.Name}")}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey));
-        var totalCount = gens.DistinctBy(x => x.Item1).Count();
+        var totalCount = gens.Count();
         var genc = lines.Count;
         Log($"{totalCount} potential dialogue lines found and {lines.Count} are currently generated, generating {totalCount - lines.Count} lines of dialogue. This could take a while.", LogMode.NORMAL);
         foreach (var (Name, FormKey) in gens)
         {
             try
             {
-                if (!lines.ContainsKey(Name))
-                {
-                    genc++;
-                }
+                genc++;
                 ProcLine(Name, FormKey);
                 if (genc % APIInfo.print_every_gen == 0)
                 {
