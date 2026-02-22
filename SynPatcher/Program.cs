@@ -163,17 +163,12 @@ public static class Program
                 }
             }
         }
-        try
-        {
-            Directory.Delete(voice_directory, true);
-        }
-        catch { }
         var vgroot = Path.Join(EDFP, "VGOutput");
         mp3 = Path.Join(vgroot, "mp3");
         wav = Path.Join(vgroot, "wav");
         lip = Path.Join(vgroot, "lip");
         xwm = Path.Join(vgroot, "xwm");
-        fuz = Path.Join(vgroot, "xwm");
+        fuz = Path.Join(vgroot, "fuz");
         Directory.CreateDirectory(mp3);
         Directory.CreateDirectory(wav);
         Directory.CreateDirectory(lip);
@@ -230,6 +225,7 @@ public static class Program
                 File.Copy(ep, fp, true);
             }
         }
+
         Log($"Writing {lines.Sum(x => x.Value.forms.Count)} json files", LogMode.NORMAL);
         foreach (var line in lines)
         {
