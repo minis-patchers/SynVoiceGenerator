@@ -184,7 +184,8 @@ public static class Program
         {
             try
             {
-                genc++;
+                if (!lines.ContainsKey(Name))
+                    genc++;
                 ProcLine(Name, FormKey);
                 if (genc % APIInfo.print_every_gen == 0)
                 {
