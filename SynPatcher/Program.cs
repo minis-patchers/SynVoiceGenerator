@@ -174,7 +174,7 @@ public static class Program
         Directory.CreateDirectory(lip);
         Directory.CreateDirectory(xwm);
         Directory.CreateDirectory(fuz);
-        client.BaseAddress = new Uri($"http://localhost:8000");
+        client.BaseAddress = new Uri(APIInfo.api_server);
         var gens = state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{CleanString($"{x.Name}")}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey));
         var totalCount = gens.DistinctBy(x => x.Item1).Count();
         var genc = lines.Count;

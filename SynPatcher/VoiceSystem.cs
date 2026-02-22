@@ -9,6 +9,7 @@ public class APIConfig
 {
     public string lang = "en";
     public string voice = "Glinda";
+    public string api_server = "http://localhost:8000";
     public LogMode log_mode = LogMode.NORMAL;
     public int print_every_gen = 1000;
     public Dictionary<string, HashSet<string>> replacementLists = new(){
