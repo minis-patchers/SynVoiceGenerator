@@ -341,7 +341,7 @@ public static class Program
             p.RedirectStandardInput = true;
             p.RedirectStandardOutput = true;
             var d = Process.Start(p);
-            d!.WaitForExit();
+            if (!d!.WaitForExit(20000)) d.Kill();
             LineData ret = new()
             {
                 guid = guid,
@@ -350,15 +350,15 @@ public static class Program
             p.FileName = $"{EDFP}/FaceFXWrapper.exe";
             p.Arguments = $"Skyrim USEnglish FonixData.cdf \"{wavname}\" \"{rwavnam}\" \"{lipname}\" \"{text.Replace("\"", "\\\"")}\"";
             d = Process.Start(p);
-            d!.WaitForExit();
+            if (!d!.WaitForExit(20000)) d.Kill();
             p.FileName = $"{EDFP}/xWMAEncode.exe";
             p.Arguments = $"\"{wavname}\" \"{xwmname}\"";
             d = Process.Start(p);
-            d!.WaitForExit();
+            if (!d!.WaitForExit(20000)) d.Kill();
             p.FileName = $"{EDFP}/BmlFuzEncode.exe";
             p.Arguments = $"\"{fuzname}\" \"{xwmname}\" \"{lipname}\"";
             d = Process.Start(p);
-            d!.WaitForExit();
+            if (!d!.WaitForExit(20000)) d.Kill();
             Log($"Generated {text}", LogMode.NORMAL);
             return ret;
         }
