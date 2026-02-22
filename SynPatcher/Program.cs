@@ -234,15 +234,6 @@ public static class Program
                     Log($"Writing {jso}", LogMode.DEBUG);
                     File.WriteAllText(jso, JsonConvert.SerializeObject(line.Value.variants, settings));
                 }
-                else
-                {
-                    try
-                    {
-                        File.Delete(jso);
-                    }
-                    catch
-                    { }
-                }
             }
         }
     }
