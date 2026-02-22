@@ -175,6 +175,7 @@ public static class Program
         Directory.CreateDirectory(xwm);
         Directory.CreateDirectory(fuz);
         client.BaseAddress = new Uri(APIInfo.api_server);
+        client.Timeout = System.Threading.Timeout.InfiniteTimeSpan;
         var gens = state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{CleanString($"{x.Name}")}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey));
         var totalCount = gens.Count();
         var genc = lines.Count;
