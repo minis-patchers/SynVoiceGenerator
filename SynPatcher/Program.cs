@@ -74,6 +74,11 @@ public static class Program
     public static APIConfig APIInfo => api.Value;
     static readonly HttpClient client = new();
     static string EDFP = string.Empty;
+    static string mp3 = string.Empty;
+    static string wav = string.Empty;
+    static string lip = string.Empty;
+    static string xwm = string.Empty;
+    static string fuz = string.Empty;
     static string CKTools = string.Empty;
     public static async Task<int> Main(string[] args)
     {
@@ -159,12 +164,17 @@ public static class Program
                 }
             }
         }
-        Directory.CreateDirectory($"{EDFP}/VGOutput/mp3/");
-        Directory.CreateDirectory($"{EDFP}/VGOutput/wav/");
-        Directory.CreateDirectory($"{EDFP}/VGOutput/wav/");
-        Directory.CreateDirectory($"{EDFP}/VGOutput/lip/");
-        Directory.CreateDirectory($"{EDFP}/VGOutput/xwm/");
-        Directory.CreateDirectory($"{EDFP}/VGOutput/fuz/");
+        var vgroot = Path.Join(EDFP, "VGOutput");
+        mp3 = Path.Join(vgroot, "mp3");
+        wav = Path.Join(vgroot, "wav");
+        lip = Path.Join(vgroot, "lip");
+        xwm = Path.Join(vgroot, "xwm");
+        fuz = Path.Join(vgroot, "xwm");
+        Directory.CreateDirectory(mp3);
+        Directory.CreateDirectory(wav);
+        Directory.CreateDirectory(lip);
+        Directory.CreateDirectory(xwm);
+        Directory.CreateDirectory(fuz);
         client.BaseAddress = new Uri($"http://localhost:8000");
         var gens = state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{CleanString($"{x.Name}")}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey));
         var totalCount = gens.DistinctBy(x => x.Item1).Count();
@@ -310,12 +320,12 @@ public static class Program
             Log("Regenerating identical guid", LogMode.DEBUG);
             guid = Guid.NewGuid().ToString().ToUpper();
         }
-        var mp3name = Path.GetFullPath($"{EDFP}/VGOutput/mp3/{guid}.mp3");
-        var wavname = Path.GetFullPath($"{EDFP}/VGOutput/wav/{guid}.wav");
-        var rwavnam = Path.GetFullPath($"{EDFP}/VGOutput/wav/{guid}.resamp.wav");
-        var lipname = Path.GetFullPath($"{EDFP}/VGOutput/lip/{guid}.lip");
-        var xwmname = Path.GetFullPath($"{EDFP}/VGOutput/xwm/{guid}.xwm");
-        var fuzname = Path.GetFullPath($"{EDFP}/VGOutput/fuz/{guid}.fuz");
+        var mp3name = Path.Join(mp3, $"{guid}.mp3");
+        var wavname = Path.Join(wav, $"{guid}.wav");
+        var rwavnam = Path.Join(wav, $"{guid}.resamp.wav");
+        var lipname = Path.Join(lip, $"{guid}.lip");
+        var xwmname = Path.Join(xwm, $"{guid}.xwm");
+        var fuzname = Path.Join(fuz, $"{guid}.fuz");
         if (!File.Exists(mp3name) && !File.Exists(fuzname))
         {
             Log($"Generating: {text}", LogMode.NORMAL);
