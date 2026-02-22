@@ -120,7 +120,6 @@ public static class Program
         var voice_directory = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice");
         var voice_sound = Path.Join(voice_directory, "Voice");
         var voice_data = Path.Join(voice_directory, "Data");
-
         if (Directory.Exists(voice_data))
         {
             foreach (var dir in Directory.EnumerateDirectories(voice_data))
@@ -164,6 +163,11 @@ public static class Program
                 }
             }
         }
+        try
+        {
+            Directory.Delete(voice_directory, true);
+        }
+        catch { }
         var vgroot = Path.Join(EDFP, "VGOutput");
         mp3 = Path.Join(vgroot, "mp3");
         wav = Path.Join(vgroot, "wav");
