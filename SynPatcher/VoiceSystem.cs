@@ -12,7 +12,6 @@ public class APIConfig
     public int seed = 123;
     public string api_server = "http://localhost:8000";
     public LogMode log_mode = LogMode.NORMAL;
-    public int print_every_gen = 1000;
     public Dictionary<string, HashSet<string>> replacementLists = new(){
         {"Alias=Player", []},
         {"Alias=CurrentRelic", ["Silver Arrow", "Leviathan Diamond"]}
