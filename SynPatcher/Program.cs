@@ -235,7 +235,7 @@ public static class Program
         {
             lines.Add(line);
         }
-        if (line.variants.Count > 0 && line.variants.All(x => x.reg_frags == null))
+        if (line.variants.Count > 0 && (line.variants.All(x => x.reg_frags == null) || line.variants.Where(x => x.reg_frags != null).All(x => x.reg_frags!.All(y => vints.All(z => z.Contains(y))))))
         {
             line.forms.Add(formKey);
             Log($"Skipping {OName}", LogMode.NORMAL);
