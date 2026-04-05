@@ -3,6 +3,7 @@ using Mutagen.Bethesda.Json;
 using Mutagen.Bethesda.Plugins;
 using Mutagen.Bethesda.Skyrim;
 using Mutagen.Bethesda.Synthesis;
+using Mutagen.Bethesda.Plugins.Cache;
 using Newtonsoft.Json;
 using Noggog;
 using System.Data;
@@ -69,7 +70,7 @@ public static class Program
             Log($"File I/O error: {ex.Message}", LogMode.NORMAL);
         }
     }
-    static Dictionary<string, LineTracker> lines = [];
+    static HashSet<LineTracker> lines = [];
     static Lazy<APIConfig> api = new();
     public static APIConfig APIInfo => api.Value;
     static readonly HttpClient client = new();
@@ -138,8 +139,10 @@ public static class Program
                             var n = CleanString($"{vt.Name}");
                             if (n.IsNullOrEmpty()) continue;
                             Log($"Loading entry for {fk}: {CleanString($"{vt.Name}")}", LogMode.DEBUG);
-                            if (lines.TryGetValue(n, out LineTracker? lin))
+                            var lind = lines.Where(x => x.forms.Any(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dg) && dg != null && CleanString($"{dg.Name}") == n));
+                            if (lind.Any())
                             {
+                                var lin = lind.First();
                                 var varint = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
                                 Log($"Merging {lin.forms.First()} with {lin.variants.Count} variants with {fk} containing text {CleanString($"{vt.Name}")} and {varint.Count} variants", LogMode.DEBUG);
                                 lin.forms.Add(fk);
@@ -154,7 +157,7 @@ public static class Program
                                 lt.variants = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
                                 if (lt.variants.Count > 0)
                                 {
-                                    lines[n] = lt;
+                                    lines.Add(lt);
                                 }
                             }
                         }
@@ -175,30 +178,18 @@ public static class Program
         Directory.CreateDirectory(fuz);
         client.BaseAddress = new Uri(APIInfo.api_server);
         client.Timeout = TimeSpan.FromMinutes(5);
-        foreach (var (Name, FormKey, Responses) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{CleanString($"{x.Name}")}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey, x.Responses)))
+        foreach (var (Name, FormKey, Responses, OName) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{CleanString($"{x.Name}")}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => (CleanString($"{x.Name}"), x.FormKey, x.Responses, $"{x.Name}")))
         {
             try
             {
-                var line = ProcLine(Name, FormKey);
+                var line = ProcLine(Name, FormKey, state.LinkCache);
                 if (line == null) continue;
                 if (line.variants.Count == 0) continue;
                 if (Responses.Any(x => x.Prompt != null))
                 {
-                    var cs = Responses.Where(x => x.Prompt != null && !x.Prompt.ToString().IsNullOrEmpty()).Select(x => (x.Prompt!.ToString()!, CleanString(x.Prompt!.ToString()!)));
-                    Log($"Generating ${cs.Count()} prompts", LogMode.NORMAL);
-                    foreach (var c in cs)
-                    {
-                        LineData? newvint = Generate(c.Item2);
-                        if (newvint != null)
-                        {
-                            line.variants.Add(new VariantData
-                            {
-                                guid = newvint.Value.guid,
-                                splen = newvint.Value.splen,
-                                reg_frags = c.Item1.Split(' ').Except(Name.Split(' ')).ToHashSet(),
-                            });
-                        }
-                    }
+                    var cs = Responses.Where(x => x.Prompt != null && !x.Prompt.ToString().IsNullOrEmpty()).Select(x => CleanString(x.Prompt!.ToString()!));
+                    Log($"Generating {cs.Count()} prompts", LogMode.NORMAL);
+                    GenVints(cs.AsEnumerable(), Name, FormKey, state.LinkCache);
                     Log($"Generated Prompts", LogMode.NORMAL);
                 }
                 if (!Directory.Exists(Path.Join(voice_data, FormKey.ModKey.ToString())))
@@ -228,59 +219,75 @@ public static class Program
             }
         }
     }
-    static LineTracker? ProcLine(string Name, FormKey FormKey)
+    static LineTracker? GenVints(IEnumerable<string> vints, string OName, FormKey formKey, ILinkCache<ISkyrimMod, ISkyrimModGetter> linkCache)
     {
-        var line = lines.GetOrAdd(Name, () => new()
+        LineTracker line = new()
         {
-            forms = [FormKey],
-            variants = [],
-        });
-        if (line.variants.Count > 0 && line.variants.All(x => x.reg_frags == null))
+            forms = [formKey],
+            variants = []
+        };
+        var lind = lines.Where(x => x.forms.Any(x => linkCache.TryResolve<IDialogTopicGetter>(x, out var dg) && dg != null && CleanString($"{dg.Name}") == OName));
+        if (lind.Any())
         {
-            line.forms.Add(FormKey);
-            Log($"Skipping {Name}", LogMode.NORMAL);
-            return line;
+            line = lind.First();
         }
-        //Basic Text Line
-        if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && Name != "..." && !Name.StartsWith('$'))
-        {
-            var dat = Generate(Name);
-            if (dat != null)
-            {
-                line.variants.Add(new()
-                {
-                    guid = dat.Value.guid,
-                    splen = dat.Value.splen,
-                    reg_frags = null,
-                });
-            }
-        }
-        //One of many different possible type variant data.
         else
         {
-            if (Name != "...")
+            lines.Add(line);
+        }
+        if (line.variants.Count > 0 && line.variants.All(x => x.reg_frags == null))
+        {
+            line.forms.Add(formKey);
+            Log($"Skipping {OName}", LogMode.NORMAL);
+            return line;
+        }
+        foreach (var Name in vints)
+        {
+            if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && Name != "..." && !Name.StartsWith('$'))
             {
-                var vc = line.variants.Count;
-                var cont = APIInfo.replacementLists.Where(x => Name.Contains($"<{x.Key}>")).ToDictionary();
-                foreach (var (vd, tline) in cont.GenerateTemplatedCartesianProduct(Name))
+                var dat = Generate(Name);
+                if (dat != null)
                 {
-                    Log($"{tline}", LogMode.NORMAL);
-                    if (!tline.Contains('<') && !tline.Contains('>') && !vd.All(x => line.variants.Any(y => y.reg_frags?.Contains(x) ?? false)))
+                    line.variants.Add(new()
                     {
-                        var ld = Generate(tline);
-                        if (ld != null)
+                        guid = dat.Value.guid,
+                        splen = dat.Value.splen,
+                        reg_frags = null,
+                    });
+                }
+            }
+            //One of many different possible type variant data.
+            else
+            {
+                if (Name != "...")
+                {
+                    var vc = line.variants.Count;
+                    var cont = APIInfo.replacementLists.Where(x => Name.Contains($"<{x.Key}>")).ToDictionary();
+                    foreach (var (vd, tline) in cont.GenerateTemplatedCartesianProduct(Name))
+                    {
+                        Log($"{tline}", LogMode.NORMAL);
+                        if (!tline.Contains('<') && !tline.Contains('>') && !vd.All(x => line.variants.Any(y => y.reg_frags?.Contains(x) ?? false)))
                         {
-                            line.variants.Add(new()
+                            var ld = Generate(tline);
+                            if (ld != null)
                             {
-                                guid = ld.Value.guid,
-                                splen = ld.Value.splen,
-                                reg_frags = vd,
-                            });
+                                line.variants.Add(new()
+                                {
+                                    guid = ld.Value.guid,
+                                    splen = ld.Value.splen,
+                                    reg_frags = tline.Split(' ').Except(Name.Split(' ')),
+                                });
+                            }
                         }
                     }
                 }
             }
         }
+        return line;
+    }
+    static LineTracker? ProcLine(string Name, FormKey FormKey, ILinkCache<ISkyrimMod, ISkyrimModGetter> linkCache)
+    {
+        var line = GenVints([Name], Name, FormKey, linkCache);
         return line;
     }
 
@@ -293,8 +300,9 @@ public static class Program
     }
     static LineData? Generate(string text)
     {
+        if (text == "..." || text == "-") return null;
         var guid = Guid.NewGuid().ToString().ToUpper();
-        while (lines.Any(x => x.Value.variants.Any(x => x.guid == $"{guid}")) || File.Exists(Path.Join(EDFP, "VGOutput", "fuz", $"{guid}.fuz")))
+        while (lines.Any(x => x.variants.Any(x => x.guid == $"{guid}")) || File.Exists(Path.Join(EDFP, "VGOutput", "fuz", $"{guid}.fuz")))
         {
             Log("Regenerating identical guid", LogMode.DEBUG);
             guid = Guid.NewGuid().ToString().ToUpper();
