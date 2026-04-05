@@ -189,7 +189,7 @@ public static class Program
                 if (Responses.Any(x => x.Prompt != null))
                 {
                     //Filter prompts that are the same as the other normal text
-                    var cs = Responses.Where(x => x.Prompt != null && !x.Prompt.ToString().IsNullOrEmpty() && x.Prompt!.ToString()!.CleanString() != Name).Select(x => x.Prompt!.ToString()!.CleanString());
+                    var cs = Responses.Where(x => x.Prompt != null && !x.Prompt.ToString().IsNullOrEmpty() && x.Prompt!.ToString()!.CleanString() != Name).Select(x => x.Prompt!.ToString()!.CleanString()).Distinct();
                     Log($"Generating {cs.Count()} prompts", LogMode.NORMAL);
                     GenVints(cs.AsEnumerable(), Name, FormKey, state.LinkCache);
                     Log($"Generated Prompts", LogMode.NORMAL);
@@ -246,8 +246,8 @@ public static class Program
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && !Name.StartsWith('$'))
             {
                 var vinc = Name.Split(' ').Except(OName.Split(' '));
-                if (vinc.Count() == 0 && line.variants.Where(x => x.reg_frags == null).Count() >= APIInfo.iterations) { Log($"Skipping {line}", LogMode.NORMAL); continue; }
-                else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.All(y => Name.Contains(y))).Count() >= APIInfo.iterations) { Log($"Skipping {line}", LogMode.NORMAL); continue; }
+                if (vinc.Count() == 0 && line.variants.Where(x => x.reg_frags == null).Count() >= APIInfo.iterations) { Log($"Skipping {Name}", LogMode.NORMAL); continue; }
+                else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.All(y => Name.Contains(y))).Count() >= APIInfo.iterations) { Log($"Skipping {Name}", LogMode.NORMAL); continue; }
                 var dat = Generate(Name);
                 if (dat != null)
                 {
