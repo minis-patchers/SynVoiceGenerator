@@ -196,13 +196,15 @@ public static class Program
                 }
                 if (!Directory.Exists(Path.Join(voice_data, FormKey.ModKey.ToString())))
                     Directory.CreateDirectory(Path.Join(voice_data, FormKey.ModKey.ToString()));
+                if (!Directory.Exists(voice_data))
+                    Directory.CreateDirectory(voice_data);
                 foreach (var vd in line.variants)
                 {
                     var fp = Path.Join(voice_sound, $"{vd.guid}.fuz");
                     var ep = Path.Join(state.ExtraSettingsDataPath, "VGOutput", "fuz", $"{vd.guid}.fuz");
-                    if (!File.Exists(ep))
+                    if (!File.Exists(fp))
                     {
-                        File.Copy(fp, ep);
+                        File.Copy(ep, fp, true);
                     }
                 }
                 foreach (var vint in line.forms)
