@@ -10,6 +10,7 @@ public class APIConfig
     public string lang = "en";
     public string voice = "Regina";
     public string api_server = "http://localhost:8000";
+    public int iterations = 1;
     public LogMode log_mode = LogMode.NORMAL;
     public Dictionary<string, HashSet<string>> replacementLists = new(){
         {"Alias=Player", []},
