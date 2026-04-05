@@ -255,7 +255,7 @@ public static class Program
                     {
                         guid = dat.Value.guid,
                         splen = dat.Value.splen,
-                        reg_frags = Name.Split(' ').Except(OName.Split(' ')).Select(RemovePunct),
+                        reg_frags = Name.Split(' ').Except(OName.Split(' ')).Select(RemovePunct).Where(x => !x.IsNullOrEmpty()),
                     };
                     if (vd.reg_frags.Count() == 0)
                     {
@@ -281,7 +281,7 @@ public static class Program
                             {
                                 guid = ld.Value.guid,
                                 splen = ld.Value.splen,
-                                reg_frags = tline.Split(' ').Except(Name.Split(' ')).Select(RemovePunct),
+                                reg_frags = tline.Split(' ').Except(Name.Split(' ')).Select(RemovePunct).Where(x => !x.IsNullOrEmpty()),
                             });
                         }
                     }
