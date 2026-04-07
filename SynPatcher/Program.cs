@@ -307,7 +307,7 @@ public static class Program
     }
     static LineData? Generate(string text)
     {
-        if (text == "..." || text == "-") return null;
+        if (text == "..." || text == "-" || text.IsNullOrEmpty()) return null;
         var guid = Guid.NewGuid().ToString().ToUpper();
         while (lines.Any(x => x.variants.Any(x => x.guid == $"{guid}")) || File.Exists(Path.Join(EDFP, "VGOutput", "fuz", $"{guid}.fuz")))
         {
