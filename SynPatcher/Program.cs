@@ -273,7 +273,7 @@ public static class Program
                 foreach (var (vd, tline) in cont.GenerateTemplatedCartesianProduct(Name))
                 {
                     Log($"{tline}", LogMode.NORMAL);
-                    if (!tline.Contains('<') && !tline.Contains('>') && !vd.All(x => line.variants.Any(y => y.reg_frags?.Contains(x) ?? false)))
+                    if (!tline.Contains('<') && !tline.Contains('>') && !vd.All(x => line.variants.Any(y => y.reg_frags?.Contains(x.RemovePunct()) ?? false)))
                     {
                         if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.All(x => tline.Contains(x))).Count() >= APIInfo.iterations) { Log($"Skipping {tline}", LogMode.NORMAL); continue; }
                         var ld = Generate(tline);
