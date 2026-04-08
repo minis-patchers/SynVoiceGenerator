@@ -307,7 +307,7 @@ public static class Program
     }
     static LineData? Generate(string text)
     {
-        if (text == "..." || text == "-" || text.Trim().IsNullOrEmpty()) return null;
+        if (text == "-" || text.RemovePunct().Trim().IsNullOrEmpty()) return null;
         var guid = Guid.NewGuid().ToString().ToUpper();
         while (lines.Any(x => x.variants.Any(x => x.guid == $"{guid}")) || File.Exists(Path.Join(EDFP, "VGOutput", "fuz", $"{guid}.fuz")))
         {
@@ -323,7 +323,7 @@ public static class Program
         if (!File.Exists(mp3name) && !File.Exists(fuzname))
         {
             Log($"Generating: {text}", LogMode.NORMAL);
-            StringContent stringContent = new(JsonConvert.SerializeObject(new Request(text.RemovePunct(), APIInfo)), Encoding.UTF8, "application/json");
+            StringContent stringContent = new(JsonConvert.SerializeObject(new Request(text, APIInfo)), Encoding.UTF8, "application/json");
             var cli = client.PostAsync($"/speak", stringContent);
             cli.Wait();
             if (cli.Result.IsSuccessStatusCode)
