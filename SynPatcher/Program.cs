@@ -257,7 +257,7 @@ public static class Program
                     {
                         guid = dat.Value.guid,
                         splen = dat.Value.splen,
-                        reg_frags = Name.Split(' ').Except(OName.Split(' ')).Select(RemovePunct).Where(x => !x.IsNullOrEmpty()),
+                        reg_frags = Name.Split(' ').Except(OName.Split(' ')).Where(x => !x.IsNullOrEmpty()),
                     };
                     if (vd.reg_frags.Count() == 0)
                     {
@@ -273,7 +273,7 @@ public static class Program
                 foreach (var (vd, tline) in cont.GenerateTemplatedCartesianProduct(Name))
                 {
                     Log($"{tline}", LogMode.NORMAL);
-                    if (!tline.Contains('<') && !tline.Contains('>') && !vd.All(x => line.variants.Any(y => y.reg_frags?.Contains(x.RemovePunct()) ?? false)))
+                    if (!tline.Contains('<') && !tline.Contains('>') && !vd.All(x => line.variants.Any(y => y.reg_frags?.Contains(x) ?? false)))
                     {
                         if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.All(x => tline.Contains(x))).Count() >= APIInfo.iterations) { Log($"Skipping {tline}", LogMode.NORMAL); continue; }
                         var ld = Generate(tline);
@@ -283,7 +283,7 @@ public static class Program
                             {
                                 guid = ld.Value.guid,
                                 splen = ld.Value.splen,
-                                reg_frags = tline.Split(' ').Except(Name.Split(' ')).Select(RemovePunct).Where(x => !x.IsNullOrEmpty()),
+                                reg_frags = tline.Split(' ').Except(Name.Split(' ')).Where(x => !x.IsNullOrEmpty()),
                             });
                         }
                     }
