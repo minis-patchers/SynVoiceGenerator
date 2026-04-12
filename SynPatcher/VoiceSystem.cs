@@ -7,7 +7,7 @@ public enum LogMode
 
 public class APIConfig
 {
-    public string lang = "en";
+    public string lang = "English";
     public string voice = "Regina";
     public string api_server = "http://localhost:8000";
     public int iterations = 1;
