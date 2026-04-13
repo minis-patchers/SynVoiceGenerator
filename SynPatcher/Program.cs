@@ -87,7 +87,7 @@ public static class Program
     }
     static bool IsValidChar(char x) => Char.IsAsciiLetterOrDigit(x) || x == '-' || x == '=' || x == '$' || x == '<' || x == '>' || x == ' ' || x == '.' || x == ',' || x == '?' || x == '!' || x == '\"' || x == '\'' || x == '*' || x == '[' || x == ']' || x == '(' || x == ')';
     static string CleanString(this string str) => new string([.. REG.HiddenFN2.Replace(REG.HiddenFN.Replace(str, ""), "").Where(IsValidChar)]).Trim().TrimEnd(',').Replace("\n", " ").Replace("\r", " ").Replace("\t", " ").Replace("  ", " ").TrimEnd(' ');
-    static string RemovePunct(this string str) => str.Replace(".", "").Replace("!", "").Replace("?", "").Replace(",", "");
+    static string RemovePunct(this string str) => str.Replace(".", "").Replace("!", "").Replace("?", "").Replace(",", "").Replace("\"", "").Replace("\'", "");
     static void Patch(IPatcherState<ISkyrimMod, ISkyrimModGetter> state)
     {
         JsonSerializerSettings settings = new();
@@ -257,7 +257,7 @@ public static class Program
                     {
                         guid = dat.Value.guid,
                         splen = dat.Value.splen,
-                        reg_frags = Name.Split(' ').Except(OName.Split(' ')).Where(x => !x.IsNullOrEmpty()),
+                        reg_frags = Name.Split(' ').Except(OName.Split(' ')).Where(x => !x.IsNullOrEmpty()).Select(RemovePunct),
                     };
                     if (vd.reg_frags.Count() == 0)
                     {
@@ -283,7 +283,7 @@ public static class Program
                             {
                                 guid = ld.Value.guid,
                                 splen = ld.Value.splen,
-                                reg_frags = tline.Split(' ').Except(Name.Split(' ')).Where(x => !x.IsNullOrEmpty()),
+                                reg_frags = tline.Split(' ').Except(Name.Split(' ')).Where(x => !x.IsNullOrEmpty()).Select(RemovePunct),
                             });
                         }
                     }
