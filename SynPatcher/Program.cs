@@ -16,7 +16,7 @@ namespace SynPatcher;
 
 public static class Program
 {
-    public static IEnumerable<(HashSet<string>, string)> GenerateTemplatedCartesianProduct(
+    public static IEnumerable<string> GenerateTemplatedCartesianProduct(
         this Dictionary<string, HashSet<string>> data,
         string template)
     {
@@ -40,15 +40,13 @@ public static class Program
         // Now, format each generated combination into the template string
         foreach (var combination in combinations)
         {
-            HashSet<string> vals = [];
             string formattedString = template;
             foreach (var kvp in combination)
             {
                 // Replace placeholders in the template with the corresponding values
-                vals.Add(kvp.Value);
                 formattedString = formattedString.Replace($"<{kvp.Key}>", kvp.Value);
             }
-            yield return (vals, formattedString);
+            yield return formattedString;
         }
     }
     public static async Task DownloadFileAsync(string fileUrl, string destinationPath)
@@ -247,9 +245,9 @@ public static class Program
         {
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && !Name.StartsWith('$'))
             {
-                var vinc = Name.Split(' ').Except(OName.Split(' '));
-                if (vinc.Count() == 0 && line.variants.Where(x => x.reg_frags == null).Count() >= APIInfo.iterations) { Log($"Skipping {Name}", LogMode.NORMAL); continue; }
-                else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.All(y => Name.Contains(y))).Count() >= APIInfo.iterations) { Log($"Skipping {Name}", LogMode.NORMAL); continue; }
+                var vinc = Name.Split(' ').Where(x => !x.IsNullOrEmpty()).Except(OName.Split(' ').Where(x => !x.IsNullOrEmpty()));
+                if (vinc.Count() == 0 && line.variants.Where(x => x.reg_frags == null).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
+                else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.All(y => Name.Contains(y))).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
                 var dat = Generate(Name);
                 if (dat != null)
                 {
@@ -257,7 +255,7 @@ public static class Program
                     {
                         guid = dat.Value.guid,
                         splen = dat.Value.splen,
-                        reg_frags = Name.Split(' ').Except(OName.Split(' ')).Where(x => !x.IsNullOrEmpty()).Select(RemovePunct),
+                        reg_frags = Name.Split(' ').Where(x => !x.IsNullOrEmpty()).Except(Name.Split(' ').Where(x => !x.IsNullOrEmpty())).Where(x => !x.IsNullOrEmpty()).Select(RemovePunct),
                     };
                     if (vd.reg_frags.Count() == 0)
                     {
@@ -270,12 +268,12 @@ public static class Program
             else
             {
                 var cont = APIInfo.replacementLists.Where(x => Name.Contains($"<{x.Key}>")).ToDictionary();
-                foreach (var (vd, tline) in cont.GenerateTemplatedCartesianProduct(Name))
+                foreach (var tline in cont.GenerateTemplatedCartesianProduct(Name))
                 {
                     Log($"{tline}", LogMode.NORMAL);
-                    if (!tline.Contains('<') && !tline.Contains('>') && !vd.All(x => line.variants.Any(y => y.reg_frags?.Contains(x) ?? false)))
+                    if (!tline.Contains('<') && !tline.Contains('>'))
                     {
-                        if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.All(x => tline.Contains(x))).Count() >= APIInfo.iterations) { Log($"Skipping {tline}", LogMode.NORMAL); continue; }
+                        if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.All(x => tline.Contains(x))).Count() >= APIInfo.iterations) { Log($"Skipping Variant: {tline}", LogMode.NORMAL); continue; }
                         var ld = Generate(tline);
                         if (ld != null)
                         {
@@ -283,7 +281,7 @@ public static class Program
                             {
                                 guid = ld.Value.guid,
                                 splen = ld.Value.splen,
-                                reg_frags = tline.Split(' ').Except(Name.Split(' ')).Where(x => !x.IsNullOrEmpty()).Select(RemovePunct),
+                                reg_frags = tline.Split(' ').Where(x => !x.IsNullOrEmpty()).Except(OName.Split(' ').Where(x => !x.IsNullOrEmpty())).Where(x => !x.IsNullOrEmpty()).Select(RemovePunct),
                             });
                         }
                     }
