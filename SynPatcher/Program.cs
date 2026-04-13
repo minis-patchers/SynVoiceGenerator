@@ -255,7 +255,7 @@ public static class Program
                     {
                         guid = dat.Value.guid,
                         splen = dat.Value.splen,
-                        reg_frags = Name.Split(' ').Where(x => !x.IsNullOrEmpty()).Except(Name.Split(' ').Where(x => !x.IsNullOrEmpty())).Where(x => !x.IsNullOrEmpty()).Select(RemovePunct),
+                        reg_frags = Name.Split(' ').Where(x => !x.IsNullOrEmpty()).Except(OName.Split(' ').Where(x => !x.IsNullOrEmpty())).Where(x => !x.IsNullOrEmpty()).Select(RemovePunct),
                     };
                     if (vd.reg_frags.Count() == 0)
                     {
