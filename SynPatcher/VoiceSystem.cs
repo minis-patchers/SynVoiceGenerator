@@ -29,7 +29,7 @@ public class VoiceSettings
 
 struct Request(string t, APIConfig apiinfo)
 {
-    public string text = t;
+    public string input = t;
     public string lang = apiinfo.VoiceConfiguration.lang;
     public string voice = apiinfo.VoiceConfiguration.voice;
     public float temperature = apiinfo.VoiceConfiguration.temperature;

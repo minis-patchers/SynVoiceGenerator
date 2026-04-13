@@ -324,7 +324,7 @@ public static class Program
         {
             Log($"Generating: {text}", LogMode.NORMAL);
             StringContent stringContent = new(JsonConvert.SerializeObject(new Request(text, APIInfo)), Encoding.UTF8, "application/json");
-            var cli = client.PostAsync($"/speak", stringContent);
+            var cli = client.PostAsync($"/v1/audio/speech", stringContent);
             cli.Wait();
             if (cli.Result.IsSuccessStatusCode)
             {
