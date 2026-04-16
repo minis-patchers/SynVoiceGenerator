@@ -280,8 +280,8 @@ public static class Program
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && !Name.StartsWith('$'))
             {
                 var vinc = Name.GetWordDifferences(OName);
-                if (vinc.Count() == 0 && line.variants.Count(x => x.reg_frags == null) >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
-                else if (line.variants.Count(x => x.reg_frags != null && x.reg_frags!.VerifyString(Name) && vinc.Count() == x.reg_frags!.Count()) >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
+                if (vinc.Count() == 0 && line.variants.Where(x => x.reg_frags == null).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
+                else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags!.VerifyString(Name) && vinc.Count() == x.reg_frags!.Count()).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
                 var dat = Generate(Name);
                 if (dat != null)
                 {
@@ -308,7 +308,7 @@ public static class Program
                     if (!tline.Contains('<') && !tline.Contains('>'))
                     {
                         var wd = tline.GetWordDifferences(OName);
-                        if (line.variants.Count(x => x.reg_frags != null && x.reg_frags!.VerifyString(tline) && x.reg_frags.Count() == wd.Count()) >= APIInfo.iterations) { Log($"Skipping Variant: {tline}", LogMode.NORMAL); continue; }
+                        if (line.variants.Where(x => x.reg_frags != null && x.reg_frags!.VerifyString(tline) && x.reg_frags.Count() == wd.Count()).Count() >= APIInfo.iterations) { Log($"Skipping Variant: {tline}", LogMode.NORMAL); continue; }
                         var ld = Generate(tline);
                         if (ld != null)
                         {
