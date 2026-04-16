@@ -48,7 +48,7 @@ public static class WordPatchExtensions
     {
         return patches.VerifyString(candidate);
     }
-    public static List<WordPatch> GetWordDifferences(this string source, string target)
+    public static IEnumerable<WordPatch> GetWordDifferences(this string source, string target)
     {
         var patches = new List<WordPatch>();
         var words1 = source.Split(' ', StringSplitOptions.RemoveEmptyEntries);

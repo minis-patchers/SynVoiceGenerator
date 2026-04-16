@@ -274,9 +274,9 @@ public static class Program
         {
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && !Name.StartsWith('$'))
             {
-                var vinc = OName.GetWordDifferences(Name);
+                var vinc = OName.GetWordDifferences(OName);
                 if (vinc.Count() == 0 && line.variants.Count(x => x.reg_frags == null) >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
-                else if (line.variants.Count(x => x.reg_frags != null && x.reg_frags!.VerifyString(Name)) >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
+                else if (line.variants.Count(x => x.reg_frags != null && x.reg_frags!.VerifyString(Name) && vinc.Count() == x.reg_frags!.Count()) >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
                 var dat = Generate(Name);
                 if (dat != null)
                 {
@@ -302,7 +302,8 @@ public static class Program
                     Log($"{tline}", LogMode.NORMAL);
                     if (!tline.Contains('<') && !tline.Contains('>'))
                     {
-                        if (line.variants.Count(x => x.reg_frags != null && x.reg_frags!.VerifyString(tline)) >= APIInfo.iterations) { Log($"Skipping Variant: {tline}", LogMode.NORMAL); continue; }
+                        var wd = tline.GetWordDifferences(OName);
+                        if (line.variants.Count(x => x.reg_frags != null && x.reg_frags!.VerifyString(tline) && x.reg_frags.Count() == wd.Count()) >= APIInfo.iterations) { Log($"Skipping Variant: {tline}", LogMode.NORMAL); continue; }
                         var ld = Generate(tline);
                         if (ld != null)
                         {
@@ -310,7 +311,7 @@ public static class Program
                             {
                                 guid = ld.Value.guid,
                                 splen = ld.Value.splen,
-                                reg_frags = tline.GetWordDifferences(OName),
+                                reg_frags = wd,
                             });
                         }
                     }
