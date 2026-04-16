@@ -142,10 +142,25 @@ public static class Program
                             if (lind.Any())
                             {
                                 var lin = lind.First();
-                                var varint = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
-                                Log($"Merging {lin.forms.First()} with {lin.variants.Count} variants with {fk} containing text {$"{vt.Name}".CleanString()} and {varint.Count} variants", LogMode.DEBUG);
+                                HashSet<VariantData> nvd;
+                                try
+                                {
+                                    nvd = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
+                                }
+                                catch (Exception)
+                                {
+                                    Console.WriteLine("Loading potentially old variant file, discarding variants requiring text data.");
+                                    var varint = JsonConvert.DeserializeObject<HashSet<OldVariantData>>(File.ReadAllText(file), settings)!;
+                                    nvd = varint.Where(x => x.reg_frags == null).Select(x => new VariantData
+                                    {
+                                        guid = x.guid,
+                                        reg_frags = null,
+                                        splen = x.splen
+                                    }).ToHashSet();
+                                }
+                                Log($"Merging {lin.forms.First()} with {lin.variants.Count} variants with {fk} containing text {$"{vt.Name}".CleanString()} and {nvd.Count} variants", LogMode.DEBUG);
                                 lin.forms.Add(fk);
-                                lin.variants.Add(varint);
+                                lin.variants.Add(nvd);
                                 lin.variants = lin.variants.DistinctBy(x => x.guid).ToHashSet();
                                 Log($"Final Variant Count {lin.variants.Count}", LogMode.DEBUG);
                             }
@@ -153,7 +168,21 @@ public static class Program
                             {
                                 var lt = new LineTracker();
                                 lt.forms.Add(fk);
-                                lt.variants = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
+                                try
+                                {
+                                    lt.variants = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
+                                }
+                                catch (Exception)
+                                {
+                                    Console.WriteLine("Loading potentially old variant file, discarding variants requiring text data.");
+                                    var varint = JsonConvert.DeserializeObject<HashSet<OldVariantData>>(File.ReadAllText(file), settings)!;
+                                    lt.variants = varint.Where(x => x.reg_frags == null).Select(x => new VariantData
+                                    {
+                                        guid = x.guid,
+                                        reg_frags = null,
+                                        splen = x.splen
+                                    }).ToHashSet();
+                                }
                                 if (lt.variants.Count > 0)
                                 {
                                     lines.Add(lt);
@@ -186,7 +215,6 @@ public static class Program
                 if (line.variants.Count == 0) continue;
                 if (Responses.Any(x => x.Prompt != null))
                 {
-                    //Filter prompts that are the same as the other normal text
                     var cs = Responses.Where(x => x.Prompt != null && !x.Prompt.ToString().IsNullOrEmpty() && x.Prompt!.ToString()!.CleanString() != Name).Select(x => x.Prompt!.ToString()!.CleanString()).Distinct();
                     Log($"Generating {cs.Count()} prompts", LogMode.NORMAL);
                     GenVints(cs.AsEnumerable(), Name, FormKey, state.LinkCache);
@@ -241,13 +269,14 @@ public static class Program
         {
             line.forms.Add(formKey);
         }
+
         foreach (var Name in vints)
         {
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && !Name.StartsWith('$'))
             {
-                var vinc = Name.Split(' ').Where(x => !x.IsNullOrEmpty()).Except(OName.Split(' ').Where(x => !x.IsNullOrEmpty()));
-                if (vinc.Count() == 0 && line.variants.Where(x => x.reg_frags == null).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
-                else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.All(y => Name.Contains(y))).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
+                var vinc = OName.GetWordDifferences(Name);
+                if (vinc.Count() == 0 && line.variants.Count(x => x.reg_frags == null) >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
+                else if (line.variants.Count(x => x.reg_frags != null && x.reg_frags!.VerifyString(Name)) >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
                 var dat = Generate(Name);
                 if (dat != null)
                 {
@@ -255,7 +284,7 @@ public static class Program
                     {
                         guid = dat.Value.guid,
                         splen = dat.Value.splen,
-                        reg_frags = Name.Split(' ').Where(x => !x.IsNullOrEmpty()).Except(OName.Split(' ').Where(x => !x.IsNullOrEmpty())).Where(x => !x.IsNullOrEmpty()).Select(RemovePunct),
+                        reg_frags = vinc,
                     };
                     if (vd.reg_frags.Count() == 0)
                     {
@@ -273,7 +302,7 @@ public static class Program
                     Log($"{tline}", LogMode.NORMAL);
                     if (!tline.Contains('<') && !tline.Contains('>'))
                     {
-                        if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.All(x => tline.Contains(x))).Count() >= APIInfo.iterations) { Log($"Skipping Variant: {tline}", LogMode.NORMAL); continue; }
+                        if (line.variants.Count(x => x.reg_frags != null && x.reg_frags!.VerifyString(tline)) >= APIInfo.iterations) { Log($"Skipping Variant: {tline}", LogMode.NORMAL); continue; }
                         var ld = Generate(tline);
                         if (ld != null)
                         {
@@ -281,7 +310,7 @@ public static class Program
                             {
                                 guid = ld.Value.guid,
                                 splen = ld.Value.splen,
-                                reg_frags = tline.Split(' ').Where(x => !x.IsNullOrEmpty()).Except(OName.Split(' ').Where(x => !x.IsNullOrEmpty())).Where(x => !x.IsNullOrEmpty()).Select(RemovePunct),
+                                reg_frags = tline.GetWordDifferences(OName),
                             });
                         }
                     }
