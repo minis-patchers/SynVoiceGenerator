@@ -138,7 +138,7 @@ public static class Program
                             var n = $"{vt.Name}".CleanString();
                             if (n.IsNullOrEmpty()) continue;
                             Log($"Loading entry for {fk}: {$"{vt.Name}".CleanString()}", LogMode.DEBUG);
-                            var lind = lines.Where(x => x.forms.Any(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dg) && dg != null && $"{dg.Name}".CleanString() == n));
+                            var lind = lines.Where(x => x.forms.Any(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dg) && dg != null && $"{dg.Name}".CleanString() == $"{vt.Name}".CleanString()));
                             if (lind.Any())
                             {
                                 var lin = lind.First();
@@ -151,15 +151,15 @@ public static class Program
                                 catch (Exception ex)
                                 {
                                     Log($"Error loading json: {ex.Message}", LogMode.DEBUG);
-                                    Log("Loading potentially old variant file, discarding variants requiring text data.", LogMode.NORMAL);
                                     var varint = JsonConvert.DeserializeObject<HashSet<OldVariantData>>(File.ReadAllText(file), settings)!;
+                                    Log($"Loaded {varint.Count} Variants", LogMode.DEBUG);
                                     nvd = varint.Where(x => x.reg_frags == null).Select(x => new VariantData
                                     {
                                         guid = x.guid,
                                         reg_frags = null,
                                         splen = x.splen
                                     }).ToHashSet();
-                                    Log($"Removing {varint.Count(x => x.reg_frags != null)} variants", LogMode.NORMAL);
+                                    Log($"Removed {varint.Count - nvd.Count} Variants", LogMode.NORMAL);
                                 }
                                 Log($"Merging {lin.forms.First()} with {lin.variants.Count} variants with {fk} containing text {$"{vt.Name}".CleanString()} and {nvd.Count} variants", LogMode.DEBUG);
                                 lin.forms.Add(fk);
@@ -212,20 +212,20 @@ public static class Program
         Directory.CreateDirectory(fuz);
         client.BaseAddress = new Uri(APIInfo.api_server);
         client.Timeout = TimeSpan.FromMinutes(5);
-        foreach (var (Name, FormKey, Responses) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{$"{x.Name}".CleanString()}".IsNullOrEmpty() && $"{x.Name}" != $"{x.EditorID}").Select(x => ($"{x.Name}".CleanString(), x.FormKey, x.Responses)))
+        foreach (var (Name, FormKey, Responses, EDID) in state.LoadOrder.PriorityOrder.DialogTopic().WinningOverrides().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{$"{x.Name}".CleanString()}".IsNullOrEmpty()).Select(x => ($"{x.Name}".CleanString(), x.FormKey, x.Responses, $"{x.EditorID}")))
         {
             try
             {
-                var line = ProcLine(Name, FormKey, state.LinkCache);
-                if (line == null) continue;
-                if (line.variants.Count == 0) continue;
+                var line = ProcLine(Name, FormKey, state.LinkCache, EDID);
                 if (Responses.Any(x => x.Prompt != null))
                 {
                     var cs = Responses.Where(x => x.Prompt != null && !x.Prompt.ToString().IsNullOrEmpty() && x.Prompt!.ToString()!.CleanString() != Name).Select(x => x.Prompt!.ToString()!.CleanString()).Distinct();
                     Log($"Generating {cs.Count()} prompts", LogMode.NORMAL);
-                    GenVints(cs.AsEnumerable(), Name, FormKey, state.LinkCache);
+                    GenVints(cs.AsEnumerable(), Name, FormKey, state.LinkCache, EDID);
                     Log($"Generated Prompts", LogMode.NORMAL);
                 }
+                if (line == null) continue;
+                if (line.variants.Count == 0) continue;
                 if (!Directory.Exists(Path.Join(voice_data, FormKey.ModKey.ToString())))
                     Directory.CreateDirectory(Path.Join(voice_data, FormKey.ModKey.ToString()));
                 if (!Directory.Exists(voice_sound))
@@ -255,7 +255,7 @@ public static class Program
             }
         }
     }
-    static LineTracker? GenVints(IEnumerable<string> vints, string OName, FormKey formKey, ILinkCache<ISkyrimMod, ISkyrimModGetter> linkCache)
+    static LineTracker? GenVints(IEnumerable<string> vints, string OName, FormKey formKey, ILinkCache<ISkyrimMod, ISkyrimModGetter> linkCache, string EDID)
     {
         LineTracker line = new()
         {
@@ -277,6 +277,7 @@ public static class Program
             {
                 line.forms.Add(formKey);
             }
+            if (EDID == Name) { continue; }
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && !Name.StartsWith('$'))
             {
                 var vinc = Name.GetWordDifferences(OName);
@@ -325,9 +326,9 @@ public static class Program
         }
         return line;
     }
-    static LineTracker? ProcLine(string Name, FormKey FormKey, ILinkCache<ISkyrimMod, ISkyrimModGetter> linkCache)
+    static LineTracker? ProcLine(string Name, FormKey FormKey, ILinkCache<ISkyrimMod, ISkyrimModGetter> linkCache, string EDID)
     {
-        var line = GenVints([Name], Name, FormKey, linkCache);
+        var line = GenVints([Name], Name, FormKey, linkCache, EDID);
         return line;
     }
 
