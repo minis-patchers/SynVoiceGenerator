@@ -258,7 +258,7 @@ public static class Program
             forms = [formKey],
             variants = []
         };
-        var lind = lines.Where(x => x.forms.Any(x => linkCache.TryResolve<IDialogTopicGetter>(x, out var dg) && dg != null && $"{dg.Name}".CleanString() == OName));
+        var lind = lines.Where(x => x.forms.Any(x => linkCache.TryResolve<IDialogTopicGetter>(x, out var dg) && dg != null && $"{dg.Name}".CleanString() == OName.CleanString()));
         if (lind.Any())
         {
             line = lind.First();
@@ -276,7 +276,7 @@ public static class Program
         {
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && !Name.StartsWith('$'))
             {
-                var vinc = OName.GetWordDifferences(OName);
+                var vinc = Name.GetWordDifferences(OName);
                 if (vinc.Count() == 0 && line.variants.Count(x => x.reg_frags == null) >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
                 else if (line.variants.Count(x => x.reg_frags != null && x.reg_frags!.VerifyString(Name) && vinc.Count() == x.reg_frags!.Count()) >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
                 var dat = Generate(Name);
