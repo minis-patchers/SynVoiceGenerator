@@ -63,8 +63,8 @@ public static class WPE
         int newLen = words2.Length - 1;
         for (int i = 0; i < maxLen; i++)
         {
-            string? w1 = i < words1.Length ? WPE.Normalize(words1[i]) : null;
-            string? w2 = i < words2.Length ? WPE.Normalize(words2[i]) : null;
+            string? w1 = i < words1.Length ? Normalize(words1[i]) : null;
+            string? w2 = i < words2.Length ? Normalize(words2[i]) : null;
             if (i == newLen)
             {
                 patches.Add(new WordPatch(i, w2));
