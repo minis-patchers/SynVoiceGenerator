@@ -157,6 +157,7 @@ public static class Program
                                         reg_frags = null,
                                         splen = x.splen
                                     }).ToHashSet();
+                                    Log($"Removing {varint.Count(x => x.reg_frags != null)} variants", LogMode.NORMAL);
                                 }
                                 Log($"Merging {lin.forms.First()} with {lin.variants.Count} variants with {fk} containing text {$"{vt.Name}".CleanString()} and {nvd.Count} variants", LogMode.DEBUG);
                                 lin.forms.Add(fk);
@@ -182,6 +183,7 @@ public static class Program
                                         reg_frags = null,
                                         splen = x.splen
                                     }).ToHashSet();
+                                    Log($"Removing {varint.Count(x => x.reg_frags != null)} variants", LogMode.NORMAL);
                                 }
                                 if (lt.variants.Count > 0)
                                 {
@@ -222,8 +224,8 @@ public static class Program
                 }
                 if (!Directory.Exists(Path.Join(voice_data, FormKey.ModKey.ToString())))
                     Directory.CreateDirectory(Path.Join(voice_data, FormKey.ModKey.ToString()));
-                if (!Directory.Exists(voice_data))
-                    Directory.CreateDirectory(voice_data);
+                if (!Directory.Exists(voice_sound))
+                    Directory.CreateDirectory(voice_sound);
                 foreach (var vd in line.variants)
                 {
                     var fp = Path.Join(voice_sound, $"{vd.guid}.fuz");
