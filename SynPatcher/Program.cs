@@ -20,13 +20,9 @@ public static class Program
         this Dictionary<string, HashSet<string>> data,
         string template)
     {
-        // Start with a single empty dictionary to represent the initial state
         IEnumerable<Dictionary<string, string>> combinations = [[]];
-
-        // Iterate through each key-value pair in the input dictionary
         foreach (var entry in data)
         {
-            // For each existing combination, create new combinations by adding each value from the current list
             combinations = combinations.SelectMany(
                 existingCombination => entry.Value.Select(
                     value =>
@@ -36,14 +32,11 @@ public static class Program
                         return newCombination;
                     }));
         }
-
-        // Now, format each generated combination into the template string
         foreach (var combination in combinations)
         {
             string formattedString = template;
             foreach (var kvp in combination)
             {
-                // Replace placeholders in the template with the corresponding values
                 formattedString = formattedString.Replace($"<{kvp.Key}>", kvp.Value);
             }
             yield return formattedString;
@@ -166,6 +159,7 @@ public static class Program
                                 lin.forms.Add(fk);
                             }
                             lin.variants = lin.variants.DistinctBy(x => x.guid).ToHashSet();
+                            lines.Add(lin);
                             Log($"Final Variant Count {lin.variants.Count}", LogMode.DEBUG);
                         }
                     }
