@@ -149,7 +149,7 @@ public static class Program
                                 }
                                 catch (Exception)
                                 {
-                                    Console.WriteLine("Loading potentially old variant file, discarding variants requiring text data.");
+                                    Log("Loading potentially old variant file, discarding variants requiring text data.", LogMode.NORMAL);
                                     var varint = JsonConvert.DeserializeObject<HashSet<OldVariantData>>(File.ReadAllText(file), settings)!;
                                     nvd = varint.Where(x => x.reg_frags == null).Select(x => new VariantData
                                     {
@@ -175,7 +175,7 @@ public static class Program
                                 }
                                 catch (Exception)
                                 {
-                                    Console.WriteLine("Loading potentially old variant file, discarding variants requiring text data.");
+                                    Log("Loading potentially old variant file, discarding variants requiring text data.", LogMode.NORMAL);
                                     var varint = JsonConvert.DeserializeObject<HashSet<OldVariantData>>(File.ReadAllText(file), settings)!;
                                     lt.variants = varint.Where(x => x.reg_frags == null).Select(x => new VariantData
                                     {
@@ -258,22 +258,21 @@ public static class Program
             forms = [formKey],
             variants = []
         };
-        var lind = lines.Where(x => x.forms.Any(x => linkCache.TryResolve<IDialogTopicGetter>(x, out var dg) && dg != null && $"{dg.Name}".CleanString() == OName.CleanString()));
-        if (lind.Any())
-        {
-            line = lind.First();
-        }
-        else
-        {
-            lines.Add(line);
-        }
-        if (line.variants.Count > 0)
-        {
-            line.forms.Add(formKey);
-        }
-
         foreach (var Name in vints)
         {
+            var lind = lines.Where(x => x.forms.Any(x => linkCache.TryResolve<IDialogTopicGetter>(x, out var dg) && dg != null && $"{dg.Name}".CleanString() == Name));
+            if (lind.Any())
+            {
+                line = lind.First();
+            }
+            else
+            {
+                lines.Add(line);
+            }
+            if (line.variants.Count > 0)
+            {
+                line.forms.Add(formKey);
+            }
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && !Name.StartsWith('$'))
             {
                 var vinc = Name.GetWordDifferences(OName);
