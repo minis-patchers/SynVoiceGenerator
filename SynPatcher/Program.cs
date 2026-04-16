@@ -137,63 +137,36 @@ public static class Program
                         {
                             var n = $"{vt.Name}".CleanString();
                             if (n.IsNullOrEmpty()) continue;
-                            Log($"Loading entry for {fk}: {$"{vt.Name}".CleanString()}", LogMode.DEBUG);
-                            var lind = lines.Where(x => x.forms.Any(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dg) && dg != null && $"{dg.Name}".CleanString() == $"{vt.Name}".CleanString()));
-                            if (lind.Any())
+                            Log($"Loading entry for {fk}: {n}", LogMode.DEBUG);
+                            var lin = lines.Where(x => x.forms.Any(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dg) && dg != null && $"{dg.Name}".CleanString() == n)).FirstOrDefault(
+                                new LineTracker()
+                                {
+                                    forms = [],
+                                    variants = [],
+                                }
+                            );
+                            try
                             {
-                                var lin = lind.First();
-                                HashSet<VariantData> nvd;
-                                try
-                                {
-                                    nvd = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
-                                    Log($"Loaded new variant data with {nvd.Count}", LogMode.NORMAL);
-                                }
-                                catch (Exception ex)
-                                {
-                                    Log($"Error loading json: {ex.Message}", LogMode.DEBUG);
-                                    var varint = JsonConvert.DeserializeObject<HashSet<OldVariantData>>(File.ReadAllText(file), settings)!;
-                                    Log($"Loaded {varint.Count} Variants", LogMode.DEBUG);
-                                    nvd = varint.Where(x => x.reg_frags == null).Select(x => new VariantData
-                                    {
-                                        guid = x.guid,
-                                        reg_frags = null,
-                                        splen = x.splen
-                                    }).ToHashSet();
-                                    Log($"Removed {varint.Count - nvd.Count} Variants", LogMode.NORMAL);
-                                }
-                                Log($"Merging {lin.forms.First()} with {lin.variants.Count} variants with {fk} containing text {$"{vt.Name}".CleanString()} and {nvd.Count} variants", LogMode.DEBUG);
-                                lin.forms.Add(fk);
+                                var nvd = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
                                 lin.variants.Add(nvd);
-                                lin.variants = lin.variants.DistinctBy(x => x.guid).ToHashSet();
-                                Log($"Final Variant Count {lin.variants.Count}", LogMode.DEBUG);
+                                lin.forms.Add(fk);
+                                Log($"Loaded new variant data with {nvd.Count}", LogMode.NORMAL);
                             }
-                            else
+                            catch (Exception ex)
                             {
-                                var lt = new LineTracker();
-                                lt.forms.Add(fk);
-                                try
+                                Log($"Error loading json: {ex.Message}", LogMode.DEBUG);
+                                var varint = JsonConvert.DeserializeObject<HashSet<OldVariantData>>(File.ReadAllText(file), settings)!;
+                                Log($"Loaded {varint.Count} Variants", LogMode.DEBUG);
+                                lin.variants.Add(varint.Where(x => x.reg_frags == null).Select(x => new VariantData
                                 {
-                                    lt.variants = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
-                                }
-                                catch (Exception ex)
-                                {
-                                    Log($"Error loading json: {ex.Message}", LogMode.DEBUG);
-                                    Log("Loading potentially old variant file, discarding variants requiring text data.", LogMode.NORMAL);
-                                    var varint = JsonConvert.DeserializeObject<HashSet<OldVariantData>>(File.ReadAllText(file), settings)!;
-                                    lt.variants = varint.Where(x => x.reg_frags == null).Select(x => new VariantData
-                                    {
-                                        guid = x.guid,
-                                        reg_frags = null,
-                                        splen = x.splen
-                                    }).ToHashSet();
-                                    Log($"Removing {varint.Count(x => x.reg_frags != null)} variants", LogMode.NORMAL);
-                                    Log($"Final Variant Count {lt.variants.Count}", LogMode.NORMAL);
-                                }
-                                if (lt.variants.Count > 0)
-                                {
-                                    lines.Add(lt);
-                                }
+                                    guid = x.guid,
+                                    reg_frags = null,
+                                    splen = x.splen
+                                }));
+                                lin.forms.Add(fk);
                             }
+                            lin.variants = lin.variants.DistinctBy(x => x.guid).ToHashSet();
+                            Log($"Final Variant Count {lin.variants.Count}", LogMode.DEBUG);
                         }
                     }
                 }
@@ -226,6 +199,7 @@ public static class Program
                 }
                 if (line == null) continue;
                 if (line.variants.Count == 0) continue;
+                lines.Add(line);
                 if (!Directory.Exists(Path.Join(voice_data, FormKey.ModKey.ToString())))
                     Directory.CreateDirectory(Path.Join(voice_data, FormKey.ModKey.ToString()));
                 if (!Directory.Exists(voice_sound))
@@ -257,26 +231,15 @@ public static class Program
     }
     static LineTracker? GenVints(IEnumerable<string> vints, string OName, FormKey formKey, ILinkCache<ISkyrimMod, ISkyrimModGetter> linkCache, string EDID)
     {
-        LineTracker line = new()
-        {
-            forms = [formKey],
-            variants = []
-        };
+        var line = lines.Where(x => x.forms.Any(x => linkCache.TryResolve<IDialogTopicGetter>(x, out var dg) && dg != null && $"{dg.Name}".CleanString() == OName)).FirstOrDefault(
+            new LineTracker()
+            {
+                forms = [formKey],
+                variants = [],
+            }
+        );
         foreach (var Name in vints)
         {
-            var lind = lines.Where(x => x.forms.Any(x => linkCache.TryResolve<IDialogTopicGetter>(x, out var dg) && dg != null && $"{dg.Name}".CleanString() == Name));
-            if (lind.Any())
-            {
-                line = lind.First();
-            }
-            else
-            {
-                lines.Add(line);
-            }
-            if (line.variants.Count > 0)
-            {
-                line.forms.Add(formKey);
-            }
             if (EDID == Name) { continue; }
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && !Name.StartsWith('$'))
             {
@@ -329,7 +292,14 @@ public static class Program
     static LineTracker? ProcLine(string Name, FormKey FormKey, ILinkCache<ISkyrimMod, ISkyrimModGetter> linkCache, string EDID)
     {
         var line = GenVints([Name], Name, FormKey, linkCache, EDID);
-        return line;
+        if (line == null)
+        {
+            return new LineTracker();
+        }
+        else
+        {
+            return line;
+        }
     }
 
     static void Log(string lt, LogMode md)
