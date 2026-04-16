@@ -16,9 +16,9 @@ public record WordPatch(int Index, string? NewWord)
         return string.Equals(cleanInput, GetCleanWord(), StringComparison.OrdinalIgnoreCase);
     }
 }
-public static class WordPatchExtensions
+public static class WPE
 {
-    static string Normalize(this string? input)
+    static string Normalize(string? input)
     {
         if (string.IsNullOrEmpty(input)) return string.Empty;
         return Regex.Replace(input, @"\p{P}", "").ToLower();
@@ -63,8 +63,8 @@ public static class WordPatchExtensions
         int newLen = words2.Length - 1;
         for (int i = 0; i < maxLen; i++)
         {
-            string? w1 = i < words1.Length ? words1[i].Normalize() : null;
-            string? w2 = i < words2.Length ? words2[i].Normalize() : null;
+            string? w1 = i < words1.Length ? WPE.Normalize(words1[i]) : null;
+            string? w2 = i < words2.Length ? WPE.Normalize(words2[i]) : null;
             if (i == newLen)
             {
                 patches.Add(new WordPatch(i, w2));
