@@ -146,9 +146,11 @@ public static class Program
                                 try
                                 {
                                     nvd = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
+                                    Log($"Loaded new variant data with {nvd.Count}", LogMode.NORMAL);
                                 }
-                                catch (Exception)
+                                catch (Exception ex)
                                 {
+                                    Log($"Error loading json: {ex.Message}", LogMode.DEBUG);
                                     Log("Loading potentially old variant file, discarding variants requiring text data.", LogMode.NORMAL);
                                     var varint = JsonConvert.DeserializeObject<HashSet<OldVariantData>>(File.ReadAllText(file), settings)!;
                                     nvd = varint.Where(x => x.reg_frags == null).Select(x => new VariantData
@@ -173,8 +175,9 @@ public static class Program
                                 {
                                     lt.variants = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
                                 }
-                                catch (Exception)
+                                catch (Exception ex)
                                 {
+                                    Log($"Error loading json: {ex.Message}", LogMode.DEBUG);
                                     Log("Loading potentially old variant file, discarding variants requiring text data.", LogMode.NORMAL);
                                     var varint = JsonConvert.DeserializeObject<HashSet<OldVariantData>>(File.ReadAllText(file), settings)!;
                                     lt.variants = varint.Where(x => x.reg_frags == null).Select(x => new VariantData
@@ -184,6 +187,7 @@ public static class Program
                                         splen = x.splen
                                     }).ToHashSet();
                                     Log($"Removing {varint.Count(x => x.reg_frags != null)} variants", LogMode.NORMAL);
+                                    Log($"Final Variant Count {lt.variants.Count}", LogMode.NORMAL);
                                 }
                                 if (lt.variants.Count > 0)
                                 {
