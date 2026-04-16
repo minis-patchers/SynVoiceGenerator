@@ -65,7 +65,7 @@ public static class WPE
         {
             string? w1 = i < words1.Length ? Normalize(words1[i]) : null;
             string? w2 = i < words2.Length ? Normalize(words2[i]) : null;
-            if (i == newLen)
+            if (i == newLen && patches.Count() > 0)
             {
                 patches.Add(new WordPatch(i, w2));
             }
@@ -73,10 +73,6 @@ public static class WPE
             {
                 patches.Add(new WordPatch(i, w2));
             }
-        }
-        if (patches.Last().NewWord != words2.Last())
-        {
-            patches.Add(new WordPatch(maxLen - 1, words2.Last()));
         }
         return patches;
     }
