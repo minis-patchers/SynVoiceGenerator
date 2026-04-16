@@ -143,13 +143,13 @@ public static class Program
                                 var nvd = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
                                 lin.variants.Add(nvd);
                                 lin.forms.Add(fk);
-                                Log($"Loaded new variant data with {nvd.Count}", LogMode.NORMAL);
+                                Log($"Loaded with {nvd.Count} variants", LogMode.NORMAL);
                             }
                             catch (Exception ex)
                             {
                                 Log($"Error loading json: {ex.Message}", LogMode.DEBUG);
                                 var varint = JsonConvert.DeserializeObject<HashSet<OldVariantData>>(File.ReadAllText(file), settings)!;
-                                Log($"Loaded {varint.Count} Variants", LogMode.DEBUG);
+                                Log($"Loaded {varint.Count} Old Variants", LogMode.DEBUG);
                                 lin.variants.Add(varint.Where(x => x.reg_frags == null).Select(x => new VariantData
                                 {
                                     guid = x.guid,
