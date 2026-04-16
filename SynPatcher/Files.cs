@@ -26,6 +26,12 @@ public static class WordPatchExtensions
     public static bool VerifyString(this IEnumerable<WordPatch> patches, string candidate)
     {
         var words = candidate.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        int expectedLength = patches
+                    .Where(p => p.NewWord != null)
+                    .Select(p => p.Index + 1)
+                    .DefaultIfEmpty(0)
+                    .Max();
+        if (words.Length != expectedLength) return false;
         foreach (var patch in patches)
         {
             bool wordExistsAtPos = patch.Index < words.Length;
@@ -54,14 +60,23 @@ public static class WordPatchExtensions
         var words1 = source.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var words2 = target.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         int maxLen = Math.Max(words1.Length, words2.Length);
+        int newLen = words2.Length - 1;
         for (int i = 0; i < maxLen; i++)
         {
             string? w1 = i < words1.Length ? words1[i].Normalize() : null;
             string? w2 = i < words2.Length ? words2[i].Normalize() : null;
-            if (!string.Equals(w1, w2, StringComparison.OrdinalIgnoreCase))
+            if (i == newLen)
             {
                 patches.Add(new WordPatch(i, w2));
             }
+            else if (!string.Equals(w1, w2, StringComparison.OrdinalIgnoreCase))
+            {
+                patches.Add(new WordPatch(i, w2));
+            }
+        }
+        if (patches.Last().NewWord != words2.Last())
+        {
+            patches.Add(new WordPatch(maxLen - 1, words2.Last()));
         }
         return patches;
     }
