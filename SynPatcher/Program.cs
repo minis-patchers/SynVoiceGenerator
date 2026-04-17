@@ -168,7 +168,7 @@ public static class Program
                 var line = ProcLine(Name, FormKey, state.LinkCache, EDID);
                 if (Responses.Any(x => x.Prompt != null))
                 {
-                    var cs = Responses.Where(x => x.Prompt != null && !x.Prompt.ToString().IsNullOrEmpty() && x.Prompt!.ToString()!.CleanString() != Name).Select(x => x.Prompt!.ToString()!.CleanString()).Distinct();
+                    var cs = Responses.Where(x => x.Prompt != null && !x.Prompt.ToString()!.IsNullOrEmpty()).Select(x => x.Prompt!.ToString()!.CleanString()).Where(x => !x.IsNullOrEmpty() && x != Name).Distinct();
                     Log($"Generating {cs.Count()} prompts", LogMode.NORMAL);
                     GenVints(cs.AsEnumerable(), Name, FormKey, state.LinkCache, EDID);
                     Log($"Generated Prompts", LogMode.NORMAL);
@@ -217,6 +217,7 @@ public static class Program
         foreach (var Name in vints)
         {
             if (EDID == Name) { continue; }
+            if (Name.CleanString().IsNullOrEmpty()) { continue; }
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && !Name.StartsWith('$'))
             {
                 var vinc = OName.GetWordDifferences(Name);
