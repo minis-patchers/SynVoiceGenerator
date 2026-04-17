@@ -140,7 +140,7 @@ public static class Program
                             lin.forms.Add(fk);
                             Log($"Loaded with {nvd.Count} variants", LogMode.DEBUG);
                             lin.variants = lin.variants.DistinctBy(x => x.guid).ToHashSet();
-                            lin.variants = lin.variants.Where(x => x.reg_frags == null).ToHashSet();
+                            // lin.variants = lin.variants.Where(x => x.reg_frags == null).ToHashSet();
                             lines.Add(lin);
                             Log($"Final Variant Count {lin.variants.Count}", LogMode.DEBUG);
                         }
