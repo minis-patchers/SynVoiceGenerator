@@ -283,7 +283,6 @@ public static class Program
                 else
                 {
                     Console.WriteLine($"Genning {formKey}, {JsonConvert.SerializeObject(line, settings)}");
-                    Console.ReadKey();
                 }
                 var dat = Generate(Name);
                 if (dat != null)
