@@ -10,7 +10,7 @@ public static class WPE
     public static string RemovePunct(this string? str) => str?.Replace(".", "")?.Replace("!", "")?.Replace("?", "")?.Replace(",", "")?.Replace("\"", "") ?? string.Empty;
     public static bool VerifyString(this IEnumerable<WordPatch> patches, string candidate)
     {
-        var words = candidate.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(CleanString).ToArray();
+        var words = candidate.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(CleanString).Select(RemovePunct).ToArray();
         int expectedLength = patches
                     .Where(p => p.NewWord != null)
                     .Select(p => p.Index + 1)
@@ -27,7 +27,7 @@ public static class WPE
             else
             {
                 if (!wordExistsAtPos) return false;
-                if (!string.Equals(words[patch.Index].CleanString().RemovePunct(), patch.NewWord))
+                if (!string.Equals(words[patch.Index], patch.NewWord))
                 {
                     return false;
                 }
@@ -46,7 +46,7 @@ public static class WPE
         {
             string? w1 = i < words1.Length ? words1[i] : null;
             string? w2 = i < words2.Length ? words2[i] : null;
-            else if (!string.Equals(w1, w2, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(w1, w2, StringComparison.OrdinalIgnoreCase))
             {
                 patches.Add(new WordPatch(i, w2));
             }
