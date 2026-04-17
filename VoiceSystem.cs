@@ -20,7 +20,7 @@ public class APIConfig
 public class VoiceSettings
 {
     public string lang = "English";
-    public string voice = "Regina";
+    public string voice = "Ranni";
     public float temperature = 0.4f;
     public int top_k = 50;
     public float top_p = 0.8f;
