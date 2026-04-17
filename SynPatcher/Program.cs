@@ -221,7 +221,7 @@ public static class Program
             {
                 var vinc = OName.GetWordDifferences(Name);
                 if (vinc.Count() == 0 && line.variants.Where(x => x.reg_frags == null).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
-                else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(Name) && vinc.Count() == x.reg_frags.Count() && vinc.Zip(x.reg_frags).All(x => x.Item1.Index == x.Item2.Index && x.Item1.NewWord == x.Item2.NewWord)).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
+                else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(Name)).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
                 var dat = Generate(Name);
                 if (dat != null)
                 {
