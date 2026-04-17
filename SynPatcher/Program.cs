@@ -143,7 +143,7 @@ public static class Program
                                 var nvd = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
                                 lin.variants.Add(nvd);
                                 lin.forms.Add(fk);
-                                Log($"Loaded with {nvd.Count} variants", LogMode.NORMAL);
+                                Log($"Loaded with {nvd.Count} variants", LogMode.DEBUG);
                             }
                             catch (Exception ex)
                             {
