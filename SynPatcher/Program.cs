@@ -219,7 +219,7 @@ public static class Program
             if (EDID == Name) { continue; }
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && !Name.StartsWith('$'))
             {
-                var vinc = Name.GetWordDifferences(OName);
+                var vinc = OName.GetWordDifferences(Name);
                 if (vinc.Count() == 0 && line.variants.Where(x => x.reg_frags == null).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
                 else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(Name) && vinc.Count() == x.reg_frags.Count() && vinc.Zip(x.reg_frags).All(x => x.Item1.Index == x.Item2.Index && x.Item1.NewWord == x.Item2.NewWord)).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
                 var dat = Generate(Name);
@@ -247,7 +247,7 @@ public static class Program
                     Log($"{tline}", LogMode.NORMAL);
                     if (!tline.Contains('<') && !tline.Contains('>'))
                     {
-                        var vinc = tline.GetWordDifferences(OName);
+                        var vinc = OName.GetWordDifferences(tline);
                         if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(tline) && vinc.Count() == x.reg_frags.Count() && vinc.Zip(x.reg_frags).All(x => x.Item1.Index == x.Item2.Index && x.Item1.NewWord == x.Item2.NewWord)).Count() >= APIInfo.iterations) { Log($"Skipping Variant: {tline}", LogMode.NORMAL); continue; }
                         var ld = Generate(tline);
                         if (ld != null)
