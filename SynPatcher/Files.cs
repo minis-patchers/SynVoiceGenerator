@@ -46,14 +46,14 @@ public static class WPE
         {
             string? w1 = i < words1.Length ? words1[i] : null;
             string? w2 = i < words2.Length ? words2[i] : null;
-            if (newLen == i)
-            {
-                patches.Add(new WordPatch(i, w2));
-            }
             else if (!string.Equals(w1, w2, StringComparison.OrdinalIgnoreCase))
             {
                 patches.Add(new WordPatch(i, w2));
             }
+        }
+        if (patches.Any() && !patches.Any(x => x.Index == newLen))
+        {
+            patches.Add(new WordPatch(newLen, words2[newLen]));
         }
         return patches;
     }
