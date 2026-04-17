@@ -239,7 +239,7 @@ public static class Program
             {
                 var vinc = Name.GetWordDifferences(OName);
                 if (vinc.Count() == 0 && line.variants.Where(x => x.reg_frags == null).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
-                else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags!.VerifyString(Name) && vinc.Count() == x.reg_frags!.Count()).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
+                else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(Name) && vinc.Count() == x.reg_frags.Count() && vinc.Zip(x.reg_frags).All(x => x.Item1.Index == x.Item2.Index && x.Item1.NewWord == x.Item2.NewWord)).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
                 var dat = Generate(Name);
                 if (dat != null)
                 {
@@ -265,8 +265,8 @@ public static class Program
                     Log($"{tline}", LogMode.NORMAL);
                     if (!tline.Contains('<') && !tline.Contains('>'))
                     {
-                        var wd = tline.GetWordDifferences(OName);
-                        if (line.variants.Where(x => x.reg_frags != null && x.reg_frags!.VerifyString(tline) && x.reg_frags.Count() == wd.Count()).Count() >= APIInfo.iterations) { Log($"Skipping Variant: {tline}", LogMode.NORMAL); continue; }
+                        var vinc = tline.GetWordDifferences(OName);
+                        if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(tline) && vinc.Count() == x.reg_frags.Count() && vinc.Zip(x.reg_frags).All(x => x.Item1.Index == x.Item2.Index && x.Item1.NewWord == x.Item2.NewWord)).Count() >= APIInfo.iterations) { Log($"Skipping Variant: {tline}", LogMode.NORMAL); continue; }
                         var ld = Generate(tline);
                         if (ld != null)
                         {
@@ -274,7 +274,7 @@ public static class Program
                             {
                                 guid = ld.Value.guid,
                                 splen = ld.Value.splen,
-                                reg_frags = wd,
+                                reg_frags = vinc,
                             });
                         }
                     }

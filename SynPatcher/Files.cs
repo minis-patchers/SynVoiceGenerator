@@ -65,14 +65,15 @@ public static class WPE
         {
             string? w1 = i < words1.Length ? Normalize(words1[i]) : null;
             string? w2 = i < words2.Length ? Normalize(words2[i]) : null;
-            if (i == newLen && patches.Count() > 0)
+            if (i == newLen) continue;
+            if (!string.Equals(w1, w2, StringComparison.OrdinalIgnoreCase))
             {
                 patches.Add(new WordPatch(i, w2));
             }
-            else if (!string.Equals(w1, w2, StringComparison.OrdinalIgnoreCase))
-            {
-                patches.Add(new WordPatch(i, w2));
-            }
+        }
+        if (patches.Any())
+        {
+            patches.Add(new WordPatch(newLen, Normalize(words2.Last())));
         }
         return patches;
     }
