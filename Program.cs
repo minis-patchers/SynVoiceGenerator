@@ -73,6 +73,7 @@ public static class Program
     static string fuz = string.Empty;
     static JsonSerializerSettings settings = new();
     static string CKTools = string.Empty;
+    static FileStream log = File.Open("LogFile.txt", FileMode.Create);
     public static void Main(string[] args)
     {
         settings.AddMutagenConverters();
@@ -80,6 +81,14 @@ public static class Program
         Console.WriteLine("Creating Game Env");
         var env = Mutagen.Bethesda.Environments.GameEnvironmentBuilder.Create(GameRelease.SkyrimSE);
         var ge = env.Build();
+        if (ge == null)
+        {
+            Log($"Unable to build Game Environment", LogMode.NORMAL);
+            Console.WriteLine("Errored: press enter to exit!");
+            var ek = Console.ReadKey();
+            while (ek.Key != ConsoleKey.Enter) { ek = Console.ReadKey(); }
+            return;
+        }
         Console.WriteLine("GE Built");
         var asm = Assembly.GetExecutingAssembly();
         EDFP = AppDomain.CurrentDomain.BaseDirectory;
@@ -125,17 +134,54 @@ public static class Program
             var conf = JsonConvert.DeserializeObject<APIConfig>(File.ReadAllText("Config.json"));
             APIInfo = conf != null ? conf : new();
         }
-        if (ge == null)
-        {
-            Log($"Unable to build GE", LogMode.NORMAL);
-        }
-        else
-        {
-            Patch(ge);
-        }
+        Patch(ge);
         Console.WriteLine("Completed press enter to exit!");
         var rk = Console.ReadKey();
         while (rk.Key != ConsoleKey.Enter) { rk = Console.ReadKey(); }
+    }
+
+    static void LoadDataFromFiles(IGameEnvironment ge, string folder)
+    {
+        foreach (var directories in Directory.EnumerateDirectories(folder))
+        {
+            var dfi = new DirectoryInfo(directories);
+            Log($"{dfi.Name}, Loading files for this directory", LogMode.DEBUG);
+            if (ge.LoadOrder.ModExists(dfi.Name))
+            {
+                Log($"Loading files for {dfi.Name}", LogMode.NORMAL);
+                foreach (var file in dfi.GetFiles())
+                {
+                    FormKey key = FormKey.Factory($"{Path.GetFileNameWithoutExtension(file.Name)}:{dfi.Name}");
+                    if (ge.LinkCache.TryResolve<IDialogTopicGetter>(key, out var ve))
+                    {
+                        var lin = lines.Where(x => x.forms.Any(x => ge.LinkCache.TryResolve<IDialogTopicGetter>(x, out var re) && $"{re.Name}".CleanString() == $"{ve.Name}".CleanString())).FirstOrDefault(new LineTracker());
+                        Log($"Attemping to load file for {key}", LogMode.DEBUG);
+                        var vdata = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file.FullName));
+                        if (vdata != null)
+                        {
+                            if (lin.forms.Any())
+                            {
+                                Log($"Merging line with {lin.forms.First()}", LogMode.DEBUG);
+                            }
+                            if (!lin.forms.Contains(key))
+                            {
+                                lin.forms.Add(key);
+                            }
+                            lin.variants.Add(vdata);
+                            lin.variants = lin.variants.DistinctBy(x => x.guid).ToHashSet();
+                            if (!lines.Contains(lin))
+                            {
+                                lines.Add(lin);
+                            }
+                        }
+                        else
+                        {
+                            Log($"Error loading file {file}", LogMode.NORMAL);
+                        }
+                    }
+                }
+            }
+        }
     }
     static void Patch(IGameEnvironment state)
     {
@@ -151,7 +197,13 @@ public static class Program
         }
         var voice_directory = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice");
         var voice_sound = Path.Join(voice_directory, "Voice");
+        if (!Directory.Exists(voice_sound))
+            Directory.CreateDirectory(voice_sound);
         var voice_data = Path.Join(voice_directory, "Data");
+        if (Directory.Exists(voice_data))
+        {
+            LoadDataFromFiles(state, voice_data);
+        }
         var vgroot = Path.Join(EDFP, "VGOutput");
         mp3 = Path.Join(vgroot, "mp3");
         wav = Path.Join(vgroot, "wav");
@@ -167,52 +219,37 @@ public static class Program
         client.Timeout = TimeSpan.FromMinutes(5);
         foreach (var (Name, FormKey, Responses, EDID) in state.LoadOrder.PriorityOrder.WinningOverrides<IDialogTopicGetter>().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{$"{x.Name}".CleanString()}".IsNullOrEmpty()).Select(x => ($"{x.Name}".CleanString(), x.FormKey, x.Responses, $"{x.EditorID}")))
         {
+            var line = lines.Where(x => x.forms.Any(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var re) && $"{re.Name}".CleanString() == Name)).FirstOrDefault(new LineTracker());
             try
             {
-                if (state.AssetProvider.TryGetStream($"Sound/VPC/DefaultVoice/Data/{FormKey.ModKey.ToString()}/{FormKey.IDString()}.json", out var stream))
-                {
-                    MemoryStream strm = new();
-                    stream.CopyTo(strm);
-                    var jso = Encoding.UTF8.GetString(strm.ToArray());
-                    try
-                    {
-                        var vdata = JsonConvert.DeserializeObject<HashSet<VariantData>>(jso);
-                        var lin = lines.Where(x => x.forms.Any(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dg) && dg != null && $"{dg.Name}".CleanString() == n)).FirstOrDefault(
-                            new LineTracker()
-                            {
-                                forms = [],
-                                variants = [],
-                            }
-                        );
-                        lin.forms.Add(FormKey);
-                        lin.variants.Add(vdata);
-                    }
-                    catch (Exception err)
-                    {
-                        Log($"Error loading json {err.Message}", LogMode.NORMAL);
-                    }
-                }
-                var line = ProcLine(Name, FormKey, state.LinkCache, EDID);
+                if (!Name.Skip())
+                    ProcLine(Name, FormKey, state.LinkCache, EDID, line);
                 if (Responses.Any(x => x.Prompt != null))
                 {
-                    var cs = Responses.Where(x => x.Prompt != null && !x.Prompt.ToString()!.IsNullOrEmpty()).Select(x => x.Prompt!.ToString()!.CleanString()).Where(x => !x.IsNullOrEmpty() && x != Name).Distinct();
+                    var cs = Responses.Where(x => x.Prompt != null && !x.Prompt.ToString()!.IsNullOrEmpty()).Select(x => x.Prompt!.ToString()!.CleanString()).Where(x => !x.IsNullOrEmpty() && x != Name && !x.Skip()).Distinct();
                     Log($"Generating {cs.Count()} prompts", LogMode.NORMAL);
-                    GenVints(cs.AsEnumerable(), Name, FormKey, state.LinkCache, EDID);
+                    GenVints(cs.AsEnumerable(), Name, FormKey, state.LinkCache, EDID, line);
                     Log($"Generated Prompts", LogMode.NORMAL);
                 }
-                if (line == null || !line.variants.Any()) continue;
-                lines.Add(line);
+                if (!line.variants.Any()) continue;
+                else if (!lines.Contains(line)) lines.Add(line);
                 if (!Directory.Exists(Path.Join(voice_data, FormKey.ModKey.ToString())))
                     Directory.CreateDirectory(Path.Join(voice_data, FormKey.ModKey.ToString()));
-                if (!Directory.Exists(voice_sound))
-                    Directory.CreateDirectory(voice_sound);
                 foreach (var vd in line.variants)
                 {
                     var fp = Path.Join(voice_sound, $"{vd.guid}.fuz");
                     var ep = Path.Join(EDFP, "VGOutput", "fuz", $"{vd.guid}.fuz");
+                    if (File.Exists(fp) && !File.Exists(ep))
+                    {
+                        File.Copy(fp, ep);
+                    }
                     if (!File.Exists(fp))
                     {
                         File.Copy(ep, fp, true);
+                    }
+                    if (!File.Exists(fp) && !File.Exists(ep))
+                    {
+                        Log($"WARN FILE DOES NOT EXISTS {vd.guid}.fuz", LogMode.NORMAL);
                     }
                 }
                 foreach (var vint in line.forms)
@@ -220,6 +257,7 @@ public static class Program
                     var jso = Path.Join(voice_data, vint.ModKey.ToString(), $"{vint.IDString()}.json");
                     if (line.variants.Count > 0)
                     {
+                        Log($"Writing file for {vint}", LogMode.DEBUG);
                         File.WriteAllText(jso, JsonConvert.SerializeObject(line.variants, settings));
                     }
                 }
@@ -231,24 +269,22 @@ public static class Program
             }
         }
     }
-    static LineTracker GenVints(IEnumerable<string> vints, string OName, FormKey formKey, ILinkCache linkCache, string EDID)
+    static void GenVints(IEnumerable<string> vints, string OName, FormKey formKey, ILinkCache linkCache, string EDID, LineTracker line)
     {
-        var line = lines.Where(x => x.forms.Any(x => linkCache.TryResolve<IDialogTopicGetter>(x, out var dg) && dg != null && $"{dg.Name}".CleanString() == OName)).FirstOrDefault(
-            new LineTracker()
-            {
-                forms = [formKey],
-                variants = [],
-            }
-        );
         foreach (var Name in vints)
         {
             if (EDID == Name) { continue; }
-            if (Name.CleanString().IsNullOrEmpty()) { continue; }
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && !Name.StartsWith('$'))
             {
                 var vinc = OName.GetWordDifferences(Name);
-                if (vinc.Count() == 0 && line.variants.Where(x => x.reg_frags == null).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
-                else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(Name)).Count() >= APIInfo.iterations) { Log($"Skipping (VINT MAIN): {Name}", LogMode.NORMAL); continue; }
+                if (Name.Skip()) { Log($"Skipping (EINVAL): {Name}", LogMode.NORMAL); continue; }
+                else if (!vinc.Any() && line.variants.Where(x => x.reg_frags == null).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
+                else if (vinc.Any() && line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(Name)).Count() >= APIInfo.iterations) { Log($"Skipping (VINT MAIN): {Name}", LogMode.NORMAL); continue; }
+                else
+                {
+                    Console.WriteLine($"Genning {formKey}, {JsonConvert.SerializeObject(line, settings)}");
+                    Console.ReadKey();
+                }
                 var dat = Generate(Name);
                 if (dat != null)
                 {
@@ -258,11 +294,15 @@ public static class Program
                         splen = dat.Value.splen,
                         reg_frags = vinc,
                     };
-                    if (vd.reg_frags.Count<WordPatch>() == 0)
+                    if (!vd.reg_frags.Any())
                     {
                         vd.reg_frags = null;
                     }
                     line.variants.Add(vd);
+                    if (!line.forms.Contains(formKey))
+                    {
+                        line.forms.Add(formKey);
+                    }
                 }
             }
             //One of many different possible type variant data.
@@ -275,7 +315,8 @@ public static class Program
                     if (!tline.Contains('<') && !tline.Contains('>'))
                     {
                         var vinc = OName.GetWordDifferences(tline);
-                        if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(tline)).Count() >= APIInfo.iterations) { Log($"Skipping (VINT REPL): {tline}", LogMode.NORMAL); continue; }
+                        if (tline.Skip()) { Log($"Skipping (EINVAL): {tline}", LogMode.NORMAL); continue; }
+                        else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(tline)).Count() >= APIInfo.iterations) { Log($"Skipping (VINT REPL): {tline}", LogMode.NORMAL); continue; }
                         var ld = Generate(tline);
                         if (ld != null)
                         {
@@ -285,28 +326,36 @@ public static class Program
                                 splen = ld.Value.splen,
                                 reg_frags = vinc,
                             });
+                            if (!line.forms.Contains(formKey))
+                            {
+                                line.forms.Add(formKey);
+                            }
                         }
                     }
                 }
             }
         }
-        return line;
     }
-    static LineTracker ProcLine(string Name, FormKey FormKey, ILinkCache linkCache, string EDID)
+    static void ProcLine(string Name, FormKey FormKey, ILinkCache linkCache, string EDID, LineTracker line)
     {
-        return GenVints([Name], Name, FormKey, linkCache, EDID);
+        GenVints([Name], Name, FormKey, linkCache, EDID, line);
     }
 
-    static void Log(string lt, LogMode md)
+    static void Log(string lt, LogMode md, bool toFile = true)
     {
+        if (APIInfo.log_mode == LogMode.NONE) return;
         if (APIInfo.log_mode >= md)
         {
+            if (toFile)
+            {
+                log.Write(Encoding.UTF8.GetBytes(lt + "\n"));
+                log.Flush();
+            }
             Console.WriteLine(lt);
         }
     }
     static LineData? Generate(string text)
     {
-        if (text == "-" || text.RemovePunct().Trim().IsNullOrEmpty()) return null;
         var guid = Guid.NewGuid().ToString().ToUpper();
         while (lines.Any(x => x.variants.Any(x => x.guid == $"{guid}")) || File.Exists(Path.Join(EDFP, "VGOutput", "fuz", $"{guid}.fuz")))
         {
@@ -342,10 +391,7 @@ public static class Program
 
             var p = new ProcessStartInfo($"{EDFP}/ffmpeg.exe")
             {
-                Arguments = $"-i \"{wavname}\" -ac 1 \"{mp3name}\"",
-                RedirectStandardError = false,
-                RedirectStandardInput = false,
-                RedirectStandardOutput = false
+                Arguments = $"-i \"{wavname}\" -ac 1 \"{mp3name}\""
             };
             var d = Process.Start(p);
             if (!d!.WaitForExit(20000)) d.Kill();
