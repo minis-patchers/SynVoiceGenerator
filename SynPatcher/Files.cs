@@ -1,31 +1,16 @@
 using Mutagen.Bethesda.Plugins;
 using NAudio.Wave;
-using System.Text.RegularExpressions;
 namespace SynPatcher;
 
-public record WordPatch(int Index, string? NewWord)
-{
-    // Instance Method: Clean the individual word
-    public string? GetCleanWord() =>
-        NewWord != null ? Regex.Replace(NewWord, @"\p{P}", "").ToLower() : null;
-
-    // Instance Method: Check if a specific string matches this patch
-    public bool IsMatch(string wordInString)
-    {
-        string cleanInput = Regex.Replace(wordInString, @"\p{P}", "");
-        return string.Equals(cleanInput, GetCleanWord(), StringComparison.OrdinalIgnoreCase);
-    }
-}
+public record WordPatch(int Index, string? NewWord);
 public static class WPE
 {
-    static string Normalize(string? input)
-    {
-        if (string.IsNullOrEmpty(input)) return string.Empty;
-        return Regex.Replace(input, @"\p{P}", "").ToLower();
-    }
+    static bool IsValidChar(char x) => Char.IsAsciiLetterOrDigit(x) || x == '-' || x == '=' || x == '$' || x == '<' || x == '>' || x == ' ' || x == '.' || x == ',' || x == '?' || x == '!' || x == '\"' || x == '\'' || x == '*' || x == '[' || x == ']' || x == '(' || x == ')';
+    public static string CleanString(this string? str) => new string([.. REG.HiddenFN2.Replace(REG.HiddenFN.Replace(str ?? string.Empty, ""), "").Where(IsValidChar)]).Trim().TrimEnd(',').Replace("\n", " ").Replace("\r", " ").Replace("\t", " ").Replace("  ", " ").TrimEnd(' ');
+    public static string RemovePunct(this string? str) => str?.Replace(".", "")?.Replace("!", "")?.Replace("?", "")?.Replace(",", "")?.Replace("\"", "") ?? string.Empty;
     public static bool VerifyString(this IEnumerable<WordPatch> patches, string candidate)
     {
-        var words = candidate.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var words = candidate.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(CleanString).ToArray();
         int expectedLength = patches
                     .Where(p => p.NewWord != null)
                     .Select(p => p.Index + 1)
@@ -42,7 +27,7 @@ public static class WPE
             else
             {
                 if (!wordExistsAtPos) return false;
-                if (!string.Equals(Normalize(words[patch.Index]) != Normalize(patch.NewWord), StringComparison.OrdinalIgnoreCase))
+                if (!string.Equals(words[patch.Index].CleanString().RemovePunct(), patch.NewWord))
                 {
                     return false;
                 }
@@ -50,30 +35,25 @@ public static class WPE
         }
         return true;
     }
-    public static bool SatisfiesPatches(this string candidate, IEnumerable<WordPatch> patches)
-    {
-        return patches.VerifyString(candidate);
-    }
     public static IEnumerable<WordPatch> GetWordDifferences(this string source, string target)
     {
         var patches = new List<WordPatch>();
-        var words1 = source.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        var words2 = target.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var words1 = source.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(CleanString).Select(RemovePunct).ToArray();
+        var words2 = target.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(CleanString).Select(RemovePunct).ToArray();
         int maxLen = Math.Max(words1.Length, words2.Length);
         int newLen = words2.Length - 1;
         for (int i = 0; i < maxLen; i++)
         {
-            string? w1 = i < words1.Length ? Normalize(words1[i]) : null;
-            string? w2 = i < words2.Length ? Normalize(words2[i]) : null;
-            if (i == newLen) continue;
-            if (!string.Equals(w1, w2, StringComparison.OrdinalIgnoreCase))
+            string? w1 = i < words1.Length ? words1[i] : null;
+            string? w2 = i < words2.Length ? words2[i] : null;
+            if (newLen == i)
             {
                 patches.Add(new WordPatch(i, w2));
             }
-        }
-        if (patches.Any())
-        {
-            patches.Add(new WordPatch(newLen, Normalize(words2.Last())));
+            else if (!string.Equals(w1, w2, StringComparison.OrdinalIgnoreCase))
+            {
+                patches.Add(new WordPatch(i, w2));
+            }
         }
         return patches;
     }
@@ -89,13 +69,6 @@ public struct LineData
 {
     public string guid;
     public ulong splen;
-}
-
-public class OldVariantData
-{
-    public ulong splen = 0;
-    public string guid = string.Empty;
-    public IEnumerable<string>? reg_frags = null;
 }
 
 public class VariantData
