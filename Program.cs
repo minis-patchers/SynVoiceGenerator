@@ -282,7 +282,7 @@ public static class Program
                 else if (vinc.Any() && line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(Name)).Count() >= APIInfo.iterations) { Log($"Skipping (VINT MAIN): {Name}", LogMode.NORMAL); continue; }
                 else
                 {
-                    Console.WriteLine($"Genning {formKey}, {JsonConvert.SerializeObject(line, settings)}");
+                    Console.WriteLine($"Genning for FormKey: {formKey}");
                 }
                 var dat = Generate(Name);
                 if (dat != null)
