@@ -140,8 +140,10 @@ public static class Program
                             lin.forms.Add(fk);
                             Log($"Loaded with {nvd.Count} variants", LogMode.DEBUG);
                             lin.variants = lin.variants.DistinctBy(x => x.guid).ToHashSet();
-                            // lin.variants = lin.variants.Where(x => x.reg_frags == null).ToHashSet();
-                            lines.Add(lin);
+                            if (!lines.Contains(lin))
+                            {
+                                lines.Add(lin);
+                            }
                             Log($"Final Variant Count {lin.variants.Count}", LogMode.DEBUG);
                         }
                     }
@@ -222,7 +224,7 @@ public static class Program
             {
                 var vinc = OName.GetWordDifferences(Name);
                 if (vinc.Count() == 0 && line.variants.Where(x => x.reg_frags == null).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
-                else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(Name)).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
+                else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(Name)).Count() >= APIInfo.iterations) { Log($"Skipping (VINT MAIN): {Name}", LogMode.NORMAL); continue; }
                 var dat = Generate(Name);
                 if (dat != null)
                 {
@@ -249,7 +251,7 @@ public static class Program
                     if (!tline.Contains('<') && !tline.Contains('>'))
                     {
                         var vinc = OName.GetWordDifferences(tline);
-                        if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(tline) && vinc.Count() == x.reg_frags.Count() && vinc.Zip(x.reg_frags).All(x => x.Item1.Index == x.Item2.Index && x.Item1.NewWord == x.Item2.NewWord)).Count() >= APIInfo.iterations) { Log($"Skipping Variant: {tline}", LogMode.NORMAL); continue; }
+                        if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(tline)).Count() >= APIInfo.iterations) { Log($"Skipping (VINT REPL): {tline}", LogMode.NORMAL); continue; }
                         var ld = Generate(tline);
                         if (ld != null)
                         {

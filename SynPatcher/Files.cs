@@ -10,7 +10,7 @@ public static class WPE
     public static string RemovePunct(this string? str) => str?.Replace(".", "")?.Replace("!", "")?.Replace("?", "")?.Replace(",", "")?.Replace("\"", "") ?? string.Empty;
     public static bool VerifyString(this IEnumerable<WordPatch> patches, string candidate)
     {
-        var words = candidate.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(CleanString).Select(RemovePunct).ToArray();
+        var words = candidate.CleanString().RemovePunct().Split(' ', StringSplitOptions.RemoveEmptyEntries);
         int expectedLength = patches
                     .Where(p => p.NewWord != null)
                     .Select(p => p.Index + 1)
@@ -38,8 +38,8 @@ public static class WPE
     public static IEnumerable<WordPatch> GetWordDifferences(this string source, string target)
     {
         var patches = new List<WordPatch>();
-        var words1 = source.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(CleanString).Select(RemovePunct).ToArray();
-        var words2 = target.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(CleanString).Select(RemovePunct).ToArray();
+        var words1 = source.CleanString().RemovePunct().Split(' ', StringSplitOptions.RemoveEmptyEntries).ToArray();
+        var words2 = target.CleanString().RemovePunct().Split(' ', StringSplitOptions.RemoveEmptyEntries).ToArray();
         int maxLen = Math.Max(words1.Length, words2.Length);
         int newLen = words2.Length - 1;
         for (int i = 0; i < maxLen; i++)
