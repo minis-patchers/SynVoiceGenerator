@@ -133,52 +133,9 @@ public static class Program
         {
             Patch(ge);
         }
-    }
-    static void LoadVoiceData(string? vd_path, IGameEnvironment state)
-    {
-        if (!vd_path.IsNullOrEmpty())
-        {
-            if (Directory.Exists(vd_path))
-            {
-                foreach (var dir in Directory.EnumerateDirectories(vd_path))
-                {
-                    var fn = new DirectoryInfo(dir).Name;
-                    Log($"Loading files for {fn}", LogMode.NORMAL);
-                    if (!state.LoadOrder.ModExists(fn)) continue;
-                    foreach (var file in Directory.EnumerateFiles(dir))
-                    {
-                        if (file.EndsWith(".json"))
-                        {
-                            var form = Path.GetFileNameWithoutExtension(file);
-                            var fk = FormKey.Factory($"{form}:{fn}");
-                            if (state.LinkCache.TryResolve<IDialogTopicGetter>(fk, out var vt))
-                            {
-                                var n = $"{vt.Name}".CleanString();
-                                if (n.IsNullOrEmpty()) continue;
-                                Log($"Loading entry for {fk}: {n}", LogMode.DEBUG);
-                                var lin = lines.Where(x => x.forms.Any(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dg) && dg != null && $"{dg.Name}".CleanString() == n)).FirstOrDefault(
-                                    new LineTracker()
-                                    {
-                                        forms = [],
-                                        variants = [],
-                                    }
-                                );
-                                var nvd = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file), settings)!;
-                                lin.variants.Add(nvd);
-                                lin.forms.Add(fk);
-                                Log($"Loaded with {nvd.Count} variants", LogMode.DEBUG);
-                                lin.variants = lin.variants.DistinctBy(x => x.guid).ToHashSet();
-                                if (!lines.Any(x => x.forms.Contains(fk)) && lin.variants.Count > 0)
-                                {
-                                    lines.Add(lin);
-                                }
-                                Log($"Final Variant Count {lin.variants.Count}", LogMode.DEBUG);
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        Console.WriteLine("Completed press enter to exit!");
+        var rk = Console.ReadKey();
+        while (rk.Key != ConsoleKey.Enter) { rk = Console.ReadKey(); }
     }
     static void Patch(IGameEnvironment state)
     {
@@ -195,7 +152,6 @@ public static class Program
         var voice_directory = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice");
         var voice_sound = Path.Join(voice_directory, "Voice");
         var voice_data = Path.Join(voice_directory, "Data");
-        LoadVoiceData(voice_data, state);
         var vgroot = Path.Join(EDFP, "VGOutput");
         mp3 = Path.Join(vgroot, "mp3");
         wav = Path.Join(vgroot, "wav");
@@ -213,6 +169,29 @@ public static class Program
         {
             try
             {
+                if (state.AssetProvider.TryGetStream($"Sound/VPC/DefaultVoice/Data/{FormKey.ModKey.ToString()}/{FormKey.IDString()}.json", out var stream))
+                {
+                    MemoryStream strm = new();
+                    stream.CopyTo(strm);
+                    var jso = Encoding.UTF8.GetString(strm.ToArray());
+                    try
+                    {
+                        var vdata = JsonConvert.DeserializeObject<HashSet<VariantData>>(jso);
+                        var lin = lines.Where(x => x.forms.Any(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var dg) && dg != null && $"{dg.Name}".CleanString() == n)).FirstOrDefault(
+                            new LineTracker()
+                            {
+                                forms = [],
+                                variants = [],
+                            }
+                        );
+                        lin.forms.Add(FormKey);
+                        lin.variants.Add(vdata);
+                    }
+                    catch (Exception err)
+                    {
+                        Log($"Error loading json {err.Message}", LogMode.NORMAL);
+                    }
+                }
                 var line = ProcLine(Name, FormKey, state.LinkCache, EDID);
                 if (Responses.Any(x => x.Prompt != null))
                 {
