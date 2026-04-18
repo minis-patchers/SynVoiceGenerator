@@ -78,6 +78,7 @@ public static class Program
     {
         settings.AddMutagenConverters();
         settings.Formatting = Formatting.Indented;
+        settings.NullValueHandling = NullValueHandling.Ignore;
         Console.WriteLine("Creating Game Env");
         var env = Mutagen.Bethesda.Environments.GameEnvironmentBuilder.Create(GameRelease.SkyrimSE);
         var ge = env.Build();
@@ -274,7 +275,7 @@ public static class Program
     {
         foreach (var Name in vints)
         {
-            if (EDID == Name && Name.DoSkip()) { continue; }
+            if (EDID == Name || Name.DoSkip()) { continue; }
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && !Name.StartsWith('$'))
             {
                 var vinc = OName.GetWordDifferences(Name);
