@@ -14,7 +14,7 @@ public static class WPE
     static bool IsValidChar(char x) => Char.IsAsciiLetterOrDigit(x) || x == '-' || x == '=' || x == '$' || x == '<' || x == '>' || x == ' ' || x == '.' || x == ',' || x == '?' || x == '!' || x == '\"' || x == '\'' || x == '*' || x == '[' || x == ']' || x == '(' || x == ')';
     public static string CleanString(this string? str) => new string([.. REG.HiddenFN2.Replace(REG.HiddenFN.Replace(str ?? string.Empty, ""), "").Where(IsValidChar)]).Trim().TrimEnd(',').Replace("\n", " ").Replace("\r", " ").Replace("\t", " ").Replace("  ", " ").TrimEnd(' ');
     public static string RemovePunct(this string? str) => str?.Replace(".", "")?.Replace("!", "")?.Replace("?", "")?.Replace(",", "")?.Replace("\"", "") ?? string.Empty;
-    public static bool Skip(this string? str) => str.CleanString().RemovePunct().Replace("-", "").Replace(".", "").Trim().IsNullOrEmpty();
+    public static bool DoSkip(this string? str) => str.CleanString().RemovePunct().Replace("-", "").Replace(".", "").Trim().IsNullOrEmpty();
     public static bool VerifyString(this IEnumerable<WordPatch> patches, string candidate)
     {
         var words = candidate.CleanString().RemovePunct().Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);

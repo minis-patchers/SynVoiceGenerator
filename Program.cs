@@ -217,16 +217,17 @@ public static class Program
         Directory.CreateDirectory(fuz);
         client.BaseAddress = new Uri(APIInfo.api_server);
         client.Timeout = TimeSpan.FromMinutes(5);
-        foreach (var (Name, FormKey, Responses, EDID) in state.LoadOrder.PriorityOrder.WinningOverrides<IDialogTopicGetter>().Where(x => $"{x.Name}" != x.EditorID && x.Category == DialogTopic.CategoryEnum.Topic).Where(x => !$"{$"{x.Name}".CleanString()}".IsNullOrEmpty()).Select(x => ($"{x.Name}".CleanString(), x.FormKey, x.Responses, $"{x.EditorID}")))
+        foreach (var (Name, FormKey, Responses, EDID) in state.LoadOrder.PriorityOrder.WinningOverrides<IDialogTopicGetter>().Select(x => ($"{x.Name}".CleanString(), x.FormKey, x.Responses, $"{x.EditorID}")))
         {
             var line = lines.Where(x => x.forms.Any(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var re) && $"{re.Name}".CleanString() == Name)).FirstOrDefault(new LineTracker());
             try
             {
-                if (!Name.Skip())
+                if (Name == EDID)
                     ProcLine(Name, FormKey, state.LinkCache, EDID, line);
                 if (Responses.Any(x => x.Prompt != null))
                 {
-                    var cs = Responses.Where(x => x.Prompt != null && !x.Prompt.ToString()!.IsNullOrEmpty()).Select(x => x.Prompt!.ToString()!.CleanString()).Where(x => !x.IsNullOrEmpty() && x != Name && !x.Skip()).Distinct();
+
+                    var cs = Responses.Where(x => x.Prompt != null).Select(x => x.Prompt!.ToString()!.CleanString()).Where(x => x != Name).Distinct();
                     Log($"Generating {cs.Count()} prompts", LogMode.NORMAL);
                     GenVints(cs.AsEnumerable(), Name, FormKey, state.LinkCache, EDID, line);
                     Log($"Generated Prompts", LogMode.NORMAL);
@@ -273,11 +274,11 @@ public static class Program
     {
         foreach (var Name in vints)
         {
-            if (EDID == Name) { continue; }
+            if (EDID == Name && Name.DoSkip()) { continue; }
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && !Name.StartsWith('$'))
             {
                 var vinc = OName.GetWordDifferences(Name);
-                if (Name.Skip()) { Log($"Skipping (EINVAL): {Name}", LogMode.NORMAL); continue; }
+                if (Name.DoSkip()) { Log($"Skipping (EINVAL): {Name}", LogMode.NORMAL); continue; }
                 else if (!vinc.Any() && line.variants.Where(x => x.reg_frags == null).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
                 else if (vinc.Any() && line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(Name)).Count() >= APIInfo.iterations) { Log($"Skipping (VINT MAIN): {Name}", LogMode.NORMAL); continue; }
                 else
@@ -314,7 +315,7 @@ public static class Program
                     if (!tline.Contains('<') && !tline.Contains('>'))
                     {
                         var vinc = OName.GetWordDifferences(tline);
-                        if (tline.Skip()) { Log($"Skipping (EINVAL): {tline}", LogMode.NORMAL); continue; }
+                        if (tline.DoSkip()) { Log($"Skipping (EINVAL): {tline}", LogMode.NORMAL); continue; }
                         else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(tline)).Count() >= APIInfo.iterations) { Log($"Skipping (VINT REPL): {tline}", LogMode.NORMAL); continue; }
                         var ld = Generate(tline);
                         if (ld != null)
