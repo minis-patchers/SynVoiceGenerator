@@ -5,8 +5,33 @@ public enum LogMode
     NONE, NORMAL, DEBUG
 }
 
+public class VoiceDataExport
+{
+    public string voice_id = string.Empty;
+    public string friendly_name = string.Empty;
+    public string? voice_sample_id;
+    public string? embedded_b64_sample;
+}
+
+public struct VoiceUploadB64
+{
+    public string name;
+    public string data;
+}
+
+public struct VoiceDownloadReq
+{
+    public string name;
+}
+public struct VoiceDownloadResp
+{
+    public string voice_data;
+}
+
 public class APIConfig
 {
+    public string voice_id = string.Empty;
+    public string esp_name = "Synthesis.esp";
     public VoiceSettings VoiceConfiguration = new();
     public string api_server = "http://localhost:8000";
     public int iterations = 1;

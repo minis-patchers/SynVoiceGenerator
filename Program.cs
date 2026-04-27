@@ -196,7 +196,7 @@ public static class Program
         {
             File.Copy(Path.Join(CKTools, "Audio", "xWMAEncode.exe"), Path.Join(EDFP, "xWMAEncode.exe"));
         }
-        var voice_directory = Path.Join(state.DataFolderPath, "Sound", "VPC", "DefaultVoice");
+        var voice_directory = Path.Join(state.DataFolderPath, "Sound", "VPC", APIInfo.voice_id);
         var voice_sound = Path.Join(voice_directory, "Voice");
         if (!Directory.Exists(voice_sound))
             Directory.CreateDirectory(voice_sound);
@@ -205,7 +205,8 @@ public static class Program
         {
             LoadDataFromFiles(state, voice_data);
         }
-        var vgroot = Path.Join(EDFP, "VGOutput");
+        var vgroot = Path.Join(EDFP, "VGOutput", APIInfo.voice_id);
+        Directory.CreateDirectory(vgroot);
         mp3 = Path.Join(vgroot, "mp3");
         wav = Path.Join(vgroot, "wav");
         lip = Path.Join(vgroot, "lip");
@@ -218,12 +219,88 @@ public static class Program
         Directory.CreateDirectory(fuz);
         client.BaseAddress = new Uri(APIInfo.api_server);
         client.Timeout = TimeSpan.FromMinutes(5);
+        List<VoiceDataExport> voices_in_esp = new();
+        var vdp = Path.Join(state.DataFolderPath, "SKSE", "VPC", $"{APIInfo.esp_name}.json");
+        if (File.Exists(vdp))
+        {
+            voices_in_esp = JsonConvert.DeserializeObject<List<VoiceDataExport>>(File.ReadAllText(vdp))!;
+        }
+        if (voices_in_esp.Where(x => x.voice_id == APIInfo.voice_id).Any())
+        {
+            var voice = voices_in_esp.First(x => x.voice_id == APIInfo.voice_id);
+            if (voice.voice_sample_id == null)
+            {
+                voice.voice_sample_id = APIInfo.VoiceConfiguration.voice;
+            }
+            if (voice.embedded_b64_sample == null)
+            {
+                var vdr = new VoiceDownloadReq()
+                {
+                    name = voice.voice_sample_id
+                };
+                StringContent stringContent = new(JsonConvert.SerializeObject(vdr), Encoding.UTF8, "application/json");
+                var req = client.PostAsync("/v1/audio/voice/download", stringContent);
+                req.Wait();
+                if (req.Result.IsSuccessStatusCode)
+                {
+                    var resp = req.Result.Content.ReadAsStringAsync();
+                    resp.Wait();
+                    voice.embedded_b64_sample = JsonConvert.DeserializeObject<VoiceDownloadResp>(resp.Result).voice_data;
+                }
+            }
+            else
+            {
+                var req = client.GetAsync("/v1/audio/voice/list");
+                req.Wait();
+                var resp = req.Result.Content.ReadAsStringAsync();
+                resp.Wait();
+                var voice_list = JsonConvert.DeserializeObject<HashSet<string>>(resp.Result)!;
+                if (!voice_list.Contains(voice.voice_sample_id))
+                {
+                    var vur = new VoiceUploadB64()
+                    {
+                        data = voice.embedded_b64_sample,
+                        name = voice.voice_sample_id,
+                    };
+                    StringContent stringContent = new(JsonConvert.SerializeObject(vur), Encoding.UTF8, "application/json");
+                    req = client.PostAsync("/v1/audio/voice/upload/b64", stringContent);
+                    req.Wait();
+                }
+            }
+        }
+        else
+        {
+            var vde = new VoiceDataExport()
+            {
+                voice_id = APIInfo.voice_id,
+                friendly_name = APIInfo.VoiceConfiguration.voice,
+                voice_sample_id = APIInfo.VoiceConfiguration.voice
+            };
+            var vdr = new VoiceDownloadReq()
+            {
+                name = vde.voice_sample_id
+            };
+            StringContent stringContent = new(JsonConvert.SerializeObject(vdr), Encoding.UTF8, "application/json");
+            var req = client.PostAsync("/v1/audio/voice/download", stringContent);
+            req.Wait();
+            if (req.Result.IsSuccessStatusCode)
+            {
+                var resp = req.Result.Content.ReadAsStringAsync();
+                resp.Wait();
+                vde.embedded_b64_sample = JsonConvert.DeserializeObject<VoiceDownloadResp>(resp.Result).voice_data;
+            }
+            else
+            {
+                Console.WriteLine($"Server does not have voice {APIInfo.VoiceConfiguration.voice}");
+            }
+            voices_in_esp.Add(vde);
+        }
         foreach (var (Name, FormKey, Responses, EDID) in state.LoadOrder.PriorityOrder.WinningOverrides<IDialogTopicGetter>().Select(x => ($"{x.Name}".CleanString(), x.FormKey, x.Responses, $"{x.EditorID}")))
         {
             var line = lines.Where(x => x.forms.Any(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var re) && $"{re.Name}".CleanString() == Name)).FirstOrDefault(new LineTracker());
             try
             {
-                if (Name == EDID)
+                if (Name != EDID)
                     ProcLine(Name, FormKey, state.LinkCache, EDID, line);
                 if (Responses.Any(x => x.Prompt != null))
                 {
@@ -240,7 +317,7 @@ public static class Program
                 foreach (var vd in line.variants)
                 {
                     var fp = Path.Join(voice_sound, $"{vd.guid}.fuz");
-                    var ep = Path.Join(EDFP, "VGOutput", "fuz", $"{vd.guid}.fuz");
+                    var ep = Path.Join(fuz, $"{vd.guid}.fuz");
                     if (File.Exists(fp) && !File.Exists(ep))
                     {
                         File.Copy(fp, ep);
@@ -270,6 +347,7 @@ public static class Program
                 break;
             }
         }
+        File.WriteAllText(vdp, JsonConvert.SerializeObject(voices_in_esp, settings));
     }
     static void GenVints(IEnumerable<string> vints, string OName, FormKey formKey, ILinkCache linkCache, string EDID, LineTracker line)
     {
