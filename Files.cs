@@ -1,4 +1,3 @@
-using Mutagen.Bethesda.Plugins;
 using Noggog;
 
 namespace SynPatcher;

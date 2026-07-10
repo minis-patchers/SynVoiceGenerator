@@ -2,7 +2,6 @@
 using Mutagen.Bethesda.Json;
 using Mutagen.Bethesda.Plugins;
 using Mutagen.Bethesda.Skyrim;
-using Mutagen.Bethesda.Plugins.Cache;
 using Newtonsoft.Json;
 using Noggog;
 using System.Data;
