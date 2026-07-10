@@ -136,9 +136,9 @@ public static class Program
             APIInfo = conf ?? new();
         }
         Patch(ge);
-        Console.WriteLine("Completed press enter to exit!");
+        Console.WriteLine("Generation complete, press enter to exit!");
         var rk = Console.ReadKey();
-        while (rk.Key != ConsoleKey.Enter) { rk = Console.ReadKey(); }
+        while (rk.Key != ConsoleKey.Enter) rk = Console.ReadKey();
     }
 
     static void LoadDataFromFiles(string folder)
@@ -180,11 +180,11 @@ public static class Program
         }
         if (File.Exists(Path.Join(voice_data, $"{APIInfo.esp_name}.json")))
         {
-            var fdat = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(Path.Join(voice_data, $"{APIInfo.esp_name}.json")), settings);
+            var fdat = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(Path.Join(voice_data, "index.json")), settings);
             if (fdat != null)
                 lines.Add(fdat);
         }
-        lines = lines.DistinctBy(x => x.guid).Where(x => File.Exists(Path.Join(voice_sound, $"{x.guid}.fuz"))).ToHashSet();
+        lines = lines.DistinctBy(x => x.guid).ToHashSet();
         var vgroot = Path.Join(EDFP, "VGOutput", APIInfo.voice_id);
         Directory.CreateDirectory(vgroot);
         mp3 = Path.Join(vgroot, "mp3");
@@ -227,6 +227,15 @@ public static class Program
                 GenVints(cs, FormKey, line);
                 if (line.Count > 0)
                 {
+                    foreach (var lin in line)
+                    {
+                        var out_path = Path.Join(voice_sound, $"{lin.guid}.fuz");
+                        var gen_path = Path.Join(fuz, $"{lin.guid}.fuz");
+                        if (!File.Exists(out_path))
+                        {
+                            File.Copy(gen_path, out_path, true);
+                        }
+                    }
                     if (!Directory.Exists(Path.Join(voice_data, FormKey.ModKey.ToString()))) Directory.CreateDirectory(Path.Join(voice_data, FormKey.ModKey.ToString()));
                     WriteFile(FormKey, line);
                 }
@@ -253,13 +262,12 @@ public static class Program
         }
         if (lines.Count > 0)
         {
-            File.WriteAllText(Path.Join(voice_data, $"{APIInfo.esp_name}.json"), JsonConvert.SerializeObject(lines, settings));
+            File.WriteAllText(Path.Join(voice_data, "index.json"), JsonConvert.SerializeObject(lines, settings));
         }
     }
     static void WriteFile(FormKey vint, IEnumerable<VariantData> variants)
     {
         if (variants.Count() == 0) return;
-        Log($"Writing file for {vint}", LogMode.DEBUG);
         var jso = Path.Join(voice_data, vint.ModKey.ToString(), $"{vint.IDString()}.json");
         File.WriteAllText(jso, JsonConvert.SerializeObject(variants, settings));
     }
