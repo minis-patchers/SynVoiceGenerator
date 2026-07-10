@@ -12,6 +12,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
 using Mutagen.Bethesda.Environments;
+using System.IO.Hashing;
 
 namespace SynPatcher;
 
@@ -62,7 +63,7 @@ public static class Program
             Log($"File I/O error: {ex.Message}", LogMode.NORMAL);
         }
     }
-    static HashSet<LineTracker> lines = [];
+    static HashSet<VariantData> lines = [];
     public static APIConfig APIInfo = new();
     static readonly HttpClient client = new();
     static string EDFP = string.Empty;
@@ -71,8 +72,12 @@ public static class Program
     static string lip = string.Empty;
     static string xwm = string.Empty;
     static string fuz = string.Empty;
+    static string voice_data = string.Empty;
+    static string voice_sound = string.Empty;
+    static string vdp = string.Empty;
     static JsonSerializerSettings settings = new();
     static string CKTools = string.Empty;
+    static List<VoiceDataExport> voices_in_esp = [];
     static FileStream log = File.Open("LogFile.txt", FileMode.Create);
     public static void Main(string[] args)
     {
@@ -95,18 +100,14 @@ public static class Program
         EDFP = AppDomain.CurrentDomain.BaseDirectory;
         if (!File.Exists(Path.Join(EDFP, "BmlFuzEncode.exe")))
         {
-            using (Stream? stream = asm.GetManifestResourceStream("VoiceGen.Data.BmlFuzEncode.exe"))
+            using Stream? stream = asm.GetManifestResourceStream("VoiceGen.Data.BmlFuzEncode.exe");
+            if (stream == null)
             {
-                if (stream == null)
-                {
-                    Console.WriteLine($"Missing embedded Resouce");
-                    return;
-                }
-                using (Stream FO = new FileStream("BmlFuzEncode.exe", FileMode.Create))
-                {
-                    stream.CopyTo(FO);
-                }
+                Console.WriteLine($"Missing embedded Resouce");
+                return;
             }
+            using Stream FO = new FileStream("BmlFuzEncode.exe", FileMode.Create);
+            stream.CopyTo(FO);
         }
         Directory.CreateDirectory(Path.Join(EDFP, "tmp"));
         if (!File.Exists(Path.Join(EDFP, "ffmpeg.exe")))
@@ -133,7 +134,7 @@ public static class Program
         else
         {
             var conf = JsonConvert.DeserializeObject<APIConfig>(File.ReadAllText("Config.json"));
-            APIInfo = conf != null ? conf : new();
+            APIInfo = conf ?? new();
         }
         Patch(ge);
         Console.WriteLine("Completed press enter to exit!");
@@ -141,45 +142,18 @@ public static class Program
         while (rk.Key != ConsoleKey.Enter) { rk = Console.ReadKey(); }
     }
 
-    static void LoadDataFromFiles(IGameEnvironment ge, string folder)
+    static void LoadDataFromFiles(string folder)
     {
         foreach (var directories in Directory.EnumerateDirectories(folder))
         {
             var dfi = new DirectoryInfo(directories);
-            Log($"{dfi.Name}, Loading files for this directory", LogMode.DEBUG);
-            if (ge.LoadOrder.ModExists(dfi.Name))
+            Log($"Loading files for {dfi.Name}", LogMode.NORMAL);
+            foreach (var file in dfi.GetFiles())
             {
-                Log($"Loading files for {dfi.Name}", LogMode.NORMAL);
-                foreach (var file in dfi.GetFiles())
+                var vdata = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file.FullName));
+                if (vdata != null)
                 {
-                    FormKey key = FormKey.Factory($"{Path.GetFileNameWithoutExtension(file.Name)}:{dfi.Name}");
-                    if (ge.LinkCache.TryResolve<IDialogTopicGetter>(key, out var ve))
-                    {
-                        var lin = lines.Where(x => x.forms.Any(x => ge.LinkCache.TryResolve<IDialogTopicGetter>(x, out var re) && $"{re.Name}".CleanString() == $"{ve.Name}".CleanString())).FirstOrDefault(new LineTracker());
-                        Log($"Attemping to load file for {key}", LogMode.DEBUG);
-                        var vdata = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(file.FullName));
-                        if (vdata != null)
-                        {
-                            if (lin.forms.Any())
-                            {
-                                Log($"Merging line with {lin.forms.First()}", LogMode.DEBUG);
-                            }
-                            if (!lin.forms.Contains(key))
-                            {
-                                lin.forms.Add(key);
-                            }
-                            lin.variants.Add(vdata);
-                            lin.variants = lin.variants.DistinctBy(x => x.guid).ToHashSet();
-                            if (!lines.Contains(lin))
-                            {
-                                lines.Add(lin);
-                            }
-                        }
-                        else
-                        {
-                            Log($"Error loading file {file}", LogMode.NORMAL);
-                        }
-                    }
+                    lines.Add(vdata.Where(x => x.frag_hash != 0 && x.guid != string.Empty));
                 }
             }
         }
@@ -197,14 +171,21 @@ public static class Program
             File.Copy(Path.Join(CKTools, "Audio", "xWMAEncode.exe"), Path.Join(EDFP, "xWMAEncode.exe"));
         }
         var voice_directory = Path.Join(state.DataFolderPath, "Sound", "VPC", APIInfo.voice_id);
-        var voice_sound = Path.Join(voice_directory, "Voice");
+        voice_sound = Path.Join(voice_directory, "Voice");
         if (!Directory.Exists(voice_sound))
             Directory.CreateDirectory(voice_sound);
-        var voice_data = Path.Join(voice_directory, "Data");
+        voice_data = Path.Join(voice_directory, "Data");
         if (Directory.Exists(voice_data))
         {
-            LoadDataFromFiles(state, voice_data);
+            LoadDataFromFiles(voice_data);
         }
+        if (File.Exists(Path.Join(voice_data, $"{APIInfo.esp_name}.json")))
+        {
+            var fdat = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(Path.Join(voice_data, $"{APIInfo.esp_name}.json")), settings);
+            if (fdat != null)
+                lines.Add(fdat);
+        }
+        lines = lines.DistinctBy(x => x.guid).Where(x => File.Exists(Path.Join(voice_sound, $"{x.guid}.fuz"))).ToHashSet();
         var vgroot = Path.Join(EDFP, "VGOutput", APIInfo.voice_id);
         Directory.CreateDirectory(vgroot);
         mp3 = Path.Join(vgroot, "mp3");
@@ -219,126 +200,36 @@ public static class Program
         Directory.CreateDirectory(fuz);
         client.BaseAddress = new Uri(APIInfo.api_server);
         client.Timeout = TimeSpan.FromMinutes(5);
-        List<VoiceDataExport> voices_in_esp = new();
-        var vdp = Path.Join(state.DataFolderPath, "SKSE", "VPC", $"{APIInfo.esp_name}.json");
+        voices_in_esp = [];
+        vdp = Path.Join(state.DataFolderPath, "SKSE", "VPC", $"{APIInfo.esp_name}.json");
         if (File.Exists(vdp))
         {
             voices_in_esp = JsonConvert.DeserializeObject<List<VoiceDataExport>>(File.ReadAllText(vdp))!;
-        }
-        if (voices_in_esp.Where(x => x.voice_id == APIInfo.voice_id).Any())
-        {
-            var voice = voices_in_esp.First(x => x.voice_id == APIInfo.voice_id);
-            if (voice.voice_sample_id == null)
+            if (!voices_in_esp.Where(x => x.voice_id == APIInfo.voice_id).Any())
             {
-                voice.voice_sample_id = APIInfo.VoiceConfiguration.voice;
-            }
-            if (voice.embedded_b64_sample == null)
-            {
-                var vdr = new VoiceDownloadReq()
+                var vde = new VoiceDataExport()
                 {
-                    name = voice.voice_sample_id
+                    voice_id = APIInfo.voice_id,
+                    friendly_name = APIInfo.VoiceConfiguration.voice,
+                    voice_sample_id = APIInfo.VoiceConfiguration.voice
                 };
-                StringContent stringContent = new(JsonConvert.SerializeObject(vdr), Encoding.UTF8, "application/json");
-                var req = client.PostAsync("/v1/audio/voice/download", stringContent);
-                req.Wait();
-                if (req.Result.IsSuccessStatusCode)
-                {
-                    var resp = req.Result.Content.ReadAsStringAsync();
-                    resp.Wait();
-                    voice.embedded_b64_sample = JsonConvert.DeserializeObject<VoiceDownloadResp>(resp.Result).voice_data;
-                }
-            }
-            else
-            {
-                var req = client.GetAsync("/v1/audio/voice/list");
-                req.Wait();
-                var resp = req.Result.Content.ReadAsStringAsync();
-                resp.Wait();
-                var voice_list = JsonConvert.DeserializeObject<HashSet<string>>(resp.Result)!;
-                if (!voice_list.Contains(voice.voice_sample_id))
-                {
-                    var vur = new VoiceUploadB64()
-                    {
-                        data = voice.embedded_b64_sample,
-                        name = voice.voice_sample_id,
-                    };
-                    StringContent stringContent = new(JsonConvert.SerializeObject(vur), Encoding.UTF8, "application/json");
-                    req = client.PostAsync("/v1/audio/voice/upload/b64", stringContent);
-                    req.Wait();
-                }
+                voices_in_esp.Add(vde);
             }
         }
-        else
-        {
-            var vde = new VoiceDataExport()
-            {
-                voice_id = APIInfo.voice_id,
-                friendly_name = APIInfo.VoiceConfiguration.voice,
-                voice_sample_id = APIInfo.VoiceConfiguration.voice
-            };
-            var vdr = new VoiceDownloadReq()
-            {
-                name = vde.voice_sample_id
-            };
-            StringContent stringContent = new(JsonConvert.SerializeObject(vdr), Encoding.UTF8, "application/json");
-            var req = client.PostAsync("/v1/audio/voice/download", stringContent);
-            req.Wait();
-            if (req.Result.IsSuccessStatusCode)
-            {
-                var resp = req.Result.Content.ReadAsStringAsync();
-                resp.Wait();
-                vde.embedded_b64_sample = JsonConvert.DeserializeObject<VoiceDownloadResp>(resp.Result).voice_data;
-            }
-            else
-            {
-                Console.WriteLine($"Server does not have voice {APIInfo.VoiceConfiguration.voice}");
-            }
-            voices_in_esp.Add(vde);
-        }
+        Console.CancelKeyPress += CancelPressHandler;
         foreach (var (Name, FormKey, Responses, EDID) in state.LoadOrder.PriorityOrder.WinningOverrides<IDialogTopicGetter>().Select(x => ($"{x.Name}".CleanString(), x.FormKey, x.Responses, $"{x.EditorID}")))
         {
-            var line = lines.Where(x => x.forms.Any(x => state.LinkCache.TryResolve<IDialogTopicGetter>(x, out var re) && $"{re.Name}".CleanString() == Name)).FirstOrDefault(new LineTracker());
             try
             {
-                if (Name != EDID)
-                    ProcLine(Name, FormKey, state.LinkCache, EDID, line);
-                if (Responses.Any(x => x.Prompt != null))
+                var cs = Responses.Where(x => x.Prompt != null).Where(x => x.Prompt != null).Select(x => x.Prompt!.ToString()!.CleanString()).Concat([Name]).DistinctBy(x => XxHash3.HashToUInt64(Encoding.UTF8.GetBytes(x.CleanString().RemovePunct().ToLower()))).Where(x => !x.DoSkip() && x != EDID).ToHashSet();
+                if (cs.Count == 0) continue;
+                Log($"Generating {cs.Count()} lines for form {FormKey}", LogMode.NORMAL);
+                HashSet<VariantData> line = new();
+                GenVints(cs, FormKey, line);
+                if (line.Count > 0)
                 {
-
-                    var cs = Responses.Where(x => x.Prompt != null).Select(x => x.Prompt!.ToString()!.CleanString()).Where(x => x != Name).Distinct();
-                    Log($"Generating {cs.Count()} prompts", LogMode.NORMAL);
-                    GenVints(cs.AsEnumerable(), Name, FormKey, state.LinkCache, EDID, line);
-                    Log($"Generated Prompts", LogMode.NORMAL);
-                }
-                if (!line.variants.Any()) continue;
-                else if (!lines.Contains(line)) lines.Add(line);
-                if (!Directory.Exists(Path.Join(voice_data, FormKey.ModKey.ToString())))
-                    Directory.CreateDirectory(Path.Join(voice_data, FormKey.ModKey.ToString()));
-                foreach (var vd in line.variants)
-                {
-                    var fp = Path.Join(voice_sound, $"{vd.guid}.fuz");
-                    var ep = Path.Join(fuz, $"{vd.guid}.fuz");
-                    if (File.Exists(fp) && !File.Exists(ep))
-                    {
-                        File.Copy(fp, ep);
-                    }
-                    if (!File.Exists(fp))
-                    {
-                        File.Copy(ep, fp, true);
-                    }
-                    if (!File.Exists(fp) && !File.Exists(ep))
-                    {
-                        Log($"WARN FILE DOES NOT EXISTS {vd.guid}.fuz", LogMode.NORMAL);
-                    }
-                }
-                foreach (var vint in line.forms)
-                {
-                    var jso = Path.Join(voice_data, vint.ModKey.ToString(), $"{vint.IDString()}.json");
-                    if (line.variants.Count > 0)
-                    {
-                        Log($"Writing file for {vint}", LogMode.DEBUG);
-                        File.WriteAllText(jso, JsonConvert.SerializeObject(line.variants, settings));
-                    }
+                    if (!Directory.Exists(Path.Join(voice_data, FormKey.ModKey.ToString()))) Directory.CreateDirectory(Path.Join(voice_data, FormKey.ModKey.ToString()));
+                    WriteFile(FormKey, line);
                 }
             }
             catch (Exception ex)
@@ -347,41 +238,57 @@ public static class Program
                 break;
             }
         }
-        File.WriteAllText(vdp, JsonConvert.SerializeObject(voices_in_esp, settings));
+        DumpFiles();
     }
-    static void GenVints(IEnumerable<string> vints, string OName, FormKey formKey, ILinkCache linkCache, string EDID, LineTracker line)
+    public static void CancelPressHandler(object? sender, ConsoleCancelEventArgs e)
+    {
+        e.Cancel = true;
+        DumpFiles();
+        Environment.Exit(0);
+    }
+    public static void DumpFiles()
+    {
+        if (voices_in_esp.Count > 0)
+        {
+            File.WriteAllText(vdp, JsonConvert.SerializeObject(voices_in_esp, settings));
+        }
+        if (lines.Count > 0)
+        {
+            File.WriteAllText(Path.Join(voice_data, $"{APIInfo.esp_name}.json"), JsonConvert.SerializeObject(lines, settings));
+        }
+    }
+    static void WriteFile(FormKey vint, IEnumerable<VariantData> variants)
+    {
+        if (variants.Count() == 0) return;
+        Log($"Writing file for {vint}", LogMode.DEBUG);
+        var jso = Path.Join(voice_data, vint.ModKey.ToString(), $"{vint.IDString()}.json");
+        File.WriteAllText(jso, JsonConvert.SerializeObject(variants, settings));
+    }
+    static void GenVints(IEnumerable<string> vints, FormKey formKey, HashSet<VariantData> line)
     {
         foreach (var Name in vints)
         {
-            if (EDID == Name || Name.DoSkip()) { continue; }
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && !Name.StartsWith('$'))
             {
-                var vinc = OName.GetWordDifferences(Name);
-                if (Name.DoSkip()) { Log($"Skipping (EINVAL): {Name}", LogMode.NORMAL); continue; }
-                else if (!vinc.Any() && line.variants.Where(x => x.reg_frags == null).Count() >= APIInfo.iterations) { Log($"Skipping: {Name}", LogMode.NORMAL); continue; }
-                else if (vinc.Any() && line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(Name)).Count() >= APIInfo.iterations) { Log($"Skipping (VINT MAIN): {Name}", LogMode.NORMAL); continue; }
-                else
+                var fh = XxHash3.HashToUInt64(Encoding.UTF8.GetBytes(Name.Normalize().RemovePunct().ToLower()));
+                if (lines.Count(x => x.frag_hash == fh) >= APIInfo.iterations)
                 {
-                    Console.WriteLine($"Genning for FormKey: {formKey}");
+                    line.Add(lines.Where(x => x.frag_hash == fh).AsEnumerable());
+                    Log($"Skipping (VINT MAIN): {Name}", LogMode.NORMAL);
+                    continue;
                 }
+                Log($"Lower: {Name.Normalize().RemovePunct().ToLower()}", LogMode.NORMAL);
+                Log($"Hash: {fh}", LogMode.NORMAL);
                 var dat = Generate(Name);
                 if (dat != null)
                 {
                     VariantData vd = new()
                     {
                         guid = dat.Value.guid,
-                        splen = dat.Value.splen,
-                        reg_frags = vinc,
+                        frag_hash = fh,
                     };
-                    if (!vd.reg_frags.Any())
-                    {
-                        vd.reg_frags = null;
-                    }
-                    line.variants.Add(vd);
-                    if (!line.forms.Contains(formKey))
-                    {
-                        line.forms.Add(formKey);
-                    }
+                    line.Add(vd);
+                    lines.Add(vd);
                 }
             }
             //One of many different possible type variant data.
@@ -393,31 +300,31 @@ public static class Program
                     Log($"{tline}", LogMode.NORMAL);
                     if (!tline.Contains('<') && !tline.Contains('>'))
                     {
-                        var vinc = OName.GetWordDifferences(tline);
+                        var fh = XxHash3.HashToUInt64(Encoding.UTF8.GetBytes(tline.Normalize().RemovePunct().ToLower()));
                         if (tline.DoSkip()) { Log($"Skipping (EINVAL): {tline}", LogMode.NORMAL); continue; }
-                        else if (line.variants.Where(x => x.reg_frags != null && x.reg_frags.VerifyString(tline)).Count() >= APIInfo.iterations) { Log($"Skipping (VINT REPL): {tline}", LogMode.NORMAL); continue; }
+                        else if (lines.Count(x => x.frag_hash == fh) >= APIInfo.iterations)
+                        {
+                            line.Add(lines.Where(x => x.frag_hash == fh).AsEnumerable());
+                            Log($"Skipping (VINT REPL): {tline}", LogMode.NORMAL);
+                            continue;
+                        }
+                        Log($"Lower: {tline.Normalize().RemovePunct().ToLower()}", LogMode.NORMAL);
+                        Log($"Hash: {fh}", LogMode.NORMAL);
                         var ld = Generate(tline);
                         if (ld != null)
                         {
-                            line.variants.Add(new VariantData()
+                            var vd = new VariantData()
                             {
                                 guid = ld.Value.guid,
-                                splen = ld.Value.splen,
-                                reg_frags = vinc,
-                            });
-                            if (!line.forms.Contains(formKey))
-                            {
-                                line.forms.Add(formKey);
-                            }
+                                frag_hash = fh,
+                            };
+                            line.Add(vd);
+                            lines.Add(vd);
                         }
                     }
                 }
             }
         }
-    }
-    static void ProcLine(string Name, FormKey FormKey, ILinkCache linkCache, string EDID, LineTracker line)
-    {
-        GenVints([Name], Name, FormKey, linkCache, EDID, line);
     }
 
     static void Log(string lt, LogMode md, bool toFile = true)
@@ -436,7 +343,7 @@ public static class Program
     static LineData? Generate(string text)
     {
         var guid = Guid.NewGuid().ToString().ToUpper();
-        while (lines.Any(x => x.variants.Any(x => x.guid == $"{guid}")) || File.Exists(Path.Join(EDFP, "VGOutput", "fuz", $"{guid}.fuz")))
+        while (lines.Any(x => x.guid == $"{guid}") || File.Exists(Path.Join(EDFP, "VGOutput", "fuz", $"{guid}.fuz")))
         {
             Log("Regenerating identical guid", LogMode.DEBUG);
             guid = Guid.NewGuid().ToString().ToUpper();
@@ -477,7 +384,6 @@ public static class Program
             LineData ret = new()
             {
                 guid = guid,
-                splen = Exts.GetMp3Duration(mp3name),
             };
             p.FileName = $"{EDFP}/FaceFXWrapper.exe";
             p.Arguments = $"Skyrim USEnglish FonixData.cdf \"{wavname}\" \"{rwavnam}\" \"{lipname}\" \"{text.Replace("\"", "\\\"")}\"";
