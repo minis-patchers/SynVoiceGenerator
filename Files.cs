@@ -68,5 +68,5 @@ public struct VariantData
 {
     public string guid;
     public ulong frag_hash;
-    public ulong? length_ms;
+    public ulong length_ms;
 }
