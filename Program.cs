@@ -1,4 +1,4 @@
-﻿using Mutagen.Bethesda;
+using Mutagen.Bethesda;
 using Mutagen.Bethesda.Json;
 using Mutagen.Bethesda.Plugins;
 using Mutagen.Bethesda.Skyrim;
@@ -234,6 +234,15 @@ public static class Program
                         if (!File.Exists(out_path))
                         {
                             File.Copy(gen_path, out_path, true);
+                        }
+                        else if (!File.Exists(out_path) && File.Exists(gen_path))
+                        {
+                            File.Copy(out_path, gen_path, true);
+                        }
+                        else
+                        {
+                            Log($"Skipping {lin.guid} - both out_path and gen_path exist", LogMode.NORMAL);
+                            continue;
                         }
                     }
                     if (!Directory.Exists(Path.Join(voice_data, FormKey.ModKey.ToString()))) Directory.CreateDirectory(Path.Join(voice_data, FormKey.ModKey.ToString()));
