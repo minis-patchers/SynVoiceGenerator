@@ -178,7 +178,7 @@ public static class Program
         {
             LoadDataFromFiles(voice_data);
         }
-        if (File.Exists(Path.Join(voice_data, $"{APIInfo.esp_name}.json")))
+        if (File.Exists(Path.Join(voice_data, "index.json")))
         {
             var fdat = JsonConvert.DeserializeObject<HashSet<VariantData>>(File.ReadAllText(Path.Join(voice_data, "index.json")), settings);
             if (fdat != null)
@@ -292,6 +292,7 @@ public static class Program
                     VariantData vd = new()
                     {
                         guid = dat.Value.guid,
+                        length_ms = dat.Value.length_ms,
                         frag_hash = fh,
                     };
                     line.Add(vd);
@@ -323,6 +324,7 @@ public static class Program
                             var vd = new VariantData()
                             {
                                 guid = ld.Value.guid,
+                                length_ms = ld.Value.length_ms,
                                 frag_hash = fh,
                             };
                             line.Add(vd);
@@ -391,6 +393,7 @@ public static class Program
             LineData ret = new()
             {
                 guid = guid,
+                length_ms = wavname.GetWavLengthInMilliseconds(),
             };
             p.FileName = $"{EDFP}/FaceFXWrapper.exe";
             p.Arguments = $"Skyrim USEnglish FonixData.cdf \"{wavname}\" \"{rwavnam}\" \"{lipname}\" \"{text.Replace("\"", "\\\"")}\"";
