@@ -11,10 +11,10 @@
      <EmbeddedResource Include="Data/BmlFuzEncode.exe" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Mutagen.Bethesda" Version="0.54.2" />
-    <PackageReference Include="Mutagen.Bethesda.Json" Version="0.54.2" />
+    <PackageReference Include="Mutagen.Bethesda" Version="0.54.4" />
+    <PackageReference Include="Mutagen.Bethesda.Json" Version="0.54.4" />
     <PackageReference Include="Mutagen.Bethesda.Serialization.Newtonsoft" Version="1.38.6" />
-    <PackageReference Include="System.IO.Hashing" Version="10.0.9" />
+    <PackageReference Include="System.IO.Hashing" Version="10.0.14" />
   </ItemGroup>
 
 </Project>

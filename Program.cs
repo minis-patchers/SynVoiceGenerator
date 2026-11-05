@@ -17,32 +17,6 @@ namespace SynPatcher;
 
 public static class Program
 {
-    public static IEnumerable<string> GenerateTemplatedCartesianProduct(
-        this Dictionary<string, HashSet<string>> data,
-        string template)
-    {
-        IEnumerable<Dictionary<string, string>> combinations = [[]];
-        foreach (var entry in data)
-        {
-            combinations = combinations.SelectMany(
-                existingCombination => entry.Value.Select(
-                    value =>
-                    {
-                        var newCombination = new Dictionary<string, string>(existingCombination);
-                        newCombination[entry.Key] = value;
-                        return newCombination;
-                    }));
-        }
-        foreach (var combination in combinations)
-        {
-            string formattedString = template;
-            foreach (var kvp in combination)
-            {
-                formattedString = formattedString.Replace($"<{kvp.Key}>", kvp.Value);
-            }
-            yield return formattedString;
-        }
-    }
     public static async Task DownloadFileAsync(string fileUrl, string destinationPath)
     {
         try
@@ -63,6 +37,7 @@ public static class Program
         }
     }
     static HashSet<VariantData> lines = [];
+    static HashSet<DropInAlias> aliases = [];
     public static APIConfig APIInfo = new();
     static readonly HttpClient client = new();
     static string EDFP = string.Empty;
@@ -93,6 +68,52 @@ public static class Program
             var ek = Console.ReadKey();
             while (ek.Key != ConsoleKey.Enter) { ek = Console.ReadKey(); }
             return;
+        }
+        var dropins_path = Path.Join(ge.DataFolderPath.Path, "SynPKGs", "SynVoiceGen");
+        if (Directory.Exists(dropins_path))
+        {
+            foreach (var file in Directory.EnumerateFiles(dropins_path))
+            {
+                if (file.EndsWith(".json"))
+                {
+                    try
+                    {
+                        var jso = JsonConvert.DeserializeObject<HashSet<DropInAlias>>(File.ReadAllText(file), settings)!;
+                        foreach (var lin in jso)
+                        {
+                            if (aliases.Any(x => lin.PatternsEq(x)))
+                            {
+                                var pattern = aliases.First(x => lin.PatternsEq(x));
+                                pattern.Replacements.UnionWith(lin.Replacements);
+                            }
+                            else
+                            {
+                                aliases.Add(lin);
+                            }
+                        }
+                    }
+                    catch (Exception ex1)
+                    {
+                        try
+                        {
+                            var jso = JsonConvert.DeserializeObject<DropInAlias>(File.ReadAllText(file), settings)!;
+                            if (aliases.Any(x => jso.PatternsEq(x)))
+                            {
+                                var pattern = aliases.First(x => jso.PatternsEq(x));
+                                pattern.Replacements.UnionWith(jso.Replacements);
+                            }
+                            else
+                            {
+                                aliases.Add(jso);
+                            }
+                        }
+                        catch (Exception ex2)
+                        {
+                            Log($"Error reading patterns in {file}\n{ex1.Message}\n{ex2.Message}", LogMode.NORMAL);
+                        }
+                    }
+                }
+            }
         }
         Console.WriteLine("GE Built");
         var asm = Assembly.GetExecutingAssembly();
@@ -204,16 +225,8 @@ public static class Program
         if (File.Exists(vdp))
         {
             voices_in_esp = JsonConvert.DeserializeObject<List<VoiceDataExport>>(File.ReadAllText(vdp))!;
-            if (!voices_in_esp.Where(x => x.voice_id == APIInfo.voice_id).Any())
-            {
-                var vde = new VoiceDataExport()
-                {
-                    voice_id = APIInfo.voice_id,
-                    friendly_name = APIInfo.VoiceConfiguration.voice,
-                    voice_sample_id = APIInfo.VoiceConfiguration.voice
-                };
-                voices_in_esp.Add(vde);
-            }
+            var voice = voices_in_esp.First(x => x.voice_id == APIInfo.voice_id);
+            APIInfo.VoiceConfiguration.voice = voice.embedded_b64_sample;
         }
         Console.CancelKeyPress += CancelPressHandler;
         foreach (var (Name, FormKey, Responses, EDID) in state.LoadOrder.PriorityOrder.WinningOverrides<IDialogTopicGetter>().Select(x => ($"{x.Name}".CleanString(), x.FormKey, x.Responses, $"{x.EditorID}")))
@@ -238,11 +251,6 @@ public static class Program
                         else if (!File.Exists(out_path) && File.Exists(gen_path))
                         {
                             File.Copy(out_path, gen_path, true);
-                        }
-                        else
-                        {
-                            Log($"Skipping {lin.guid} - both out_path and gen_path exist", LogMode.NORMAL);
-                            continue;
                         }
                     }
                     if (!Directory.Exists(Path.Join(voice_data, FormKey.ModKey.ToString()))) Directory.CreateDirectory(Path.Join(voice_data, FormKey.ModKey.ToString()));
@@ -287,10 +295,13 @@ public static class Program
             if (!Name.Contains('<') && !Name.Contains('>') && !(Name.StartsWith('(') && Name.EndsWith(')')) && !(Name.StartsWith('[') && !Name.EndsWith(']')) && !(Name.EndsWith('*') && Name.StartsWith('*')) && !Name.Contains('_') && !Name.StartsWith('$'))
             {
                 var fh = XxHash3.HashToUInt64(Encoding.UTF8.GetBytes(Name.Normalize().RemovePunct().ToLower()));
-                if (lines.Count(x => x.frag_hash == fh) >= APIInfo.iterations)
+                if (lines.Any(x => x.frag_hash == fh))
                 {
                     line.Add(lines.Where(x => x.frag_hash == fh).AsEnumerable());
-                    Log($"Skipping (VINT MAIN): {Name}", LogMode.NORMAL);
+                }
+                if (lines.Count(x=>x.frag_hash == fh) >= APIInfo.iterations)
+                {
+                    Log($"Skipping {Name} as it has already been processed {lines.Count(x => x.frag_hash == fh)} times", LogMode.NORMAL);
                     continue;
                 }
                 Log($"Lower: {Name.Normalize().RemovePunct().ToLower()}", LogMode.NORMAL);
@@ -308,11 +319,16 @@ public static class Program
                     lines.Add(vd);
                 }
             }
-            //One of many different possible type variant data.
             else
             {
-                var cont = APIInfo.replacementLists.Where(x => Name.Contains($"<{x.Key}>")).ToDictionary();
-                foreach (var tline in cont.GenerateTemplatedCartesianProduct(Name))
+                var matches = aliases.Where(x => x.IsMatch(Name));
+                HashSet<string> strs = [Name];
+                foreach (var match in matches)
+                {
+                    strs = match.GetStrings(strs);
+                }
+                Log($"Generating {strs.Count} variants", LogMode.NORMAL);
+                foreach (var tline in strs)
                 {
                     Log($"{tline}", LogMode.NORMAL);
                     if (!tline.Contains('<') && !tline.Contains('>'))
@@ -376,7 +392,7 @@ public static class Program
         {
             Log($"Generating: {text}", LogMode.NORMAL);
             StringContent stringContent = new(JsonConvert.SerializeObject(new Request(text, APIInfo)), Encoding.UTF8, "application/json");
-            var cli = client.PostAsync($"/v1/audio/speech", stringContent);
+            var cli = client.PostAsync($"/tts", stringContent);
             cli.Wait();
             if (cli.Result.IsSuccessStatusCode)
             {

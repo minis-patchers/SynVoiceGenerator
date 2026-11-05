@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Noggog;
 
 namespace SynPatcher;
@@ -56,6 +57,32 @@ public static class WPE
         return (ulong)Math.Ceiling(((double)dataSize / byteRate) * 1000);
     }
 
+}
+
+public struct DropInAlias {
+    public Regex Pattern;
+    public HashSet<string> Replacements;
+    HashSet<string> GetStringsSingle(string str) {
+        HashSet<string> strs = new();
+        foreach(var repl in Replacements)
+        {
+            strs.Add(Pattern.Replace(str, repl));
+        }
+        return strs;
+    }
+    public HashSet<string> GetStrings(HashSet<string> strs) {
+        HashSet<string> rstrs = new();
+        foreach(var str in strs) {
+            rstrs.UnionWith(GetStringsSingle(str));
+        }
+        return rstrs;
+    }
+    public bool PatternsEq(DropInAlias other) {
+        return other.Pattern.ToString() == Pattern.ToString() && other.Pattern.Options == Pattern.Options;
+    }
+    public bool IsMatch(string str) {
+        return Pattern.IsMatch(str);
+    }
 }
 
 public struct LineData
